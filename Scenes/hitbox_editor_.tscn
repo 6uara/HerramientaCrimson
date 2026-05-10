@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://kvvxeavxapw"]
+
+[ext_resource type="Script" uid="uid://c5q5skj5d48j5" path="res://Scripts/hitboxEditor_.gd" id="1_xp1hi"]
+
+[node name="HitboxEditor" type="Control" unique_id=325017624]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("1_xp1hi")

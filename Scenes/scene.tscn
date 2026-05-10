@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://lueclidqocv1"]
+
+[ext_resource type="Script" uid="uid://cobn8km4m4dlg" path="res://Scripts/CombatSetup.gd" id="1_3253y"]
+[ext_resource type="Script" uid="uid://hsmg8nrk1p4o" path="res://Scripts/CombatManager.gd" id="2_u3cyc"]
+[ext_resource type="PackedScene" uid="uid://can0sjtrx18j5" path="res://Scenes/ui.tscn" id="3_m7jmp"]
+[ext_resource type="PackedScene" uid="uid://brql841bsmcai" path="res://Scenes/qte_display.tscn" id="4_6yy46"]
+[ext_resource type="PackedScene" uid="uid://r04r6ysltnfj" path="res://Scenes/pause_menu.tscn" id="4_u3cyc"]
+[ext_resource type="PackedScene" uid="uid://bjavwpihcpaig" path="res://Scenes/stats_editor.tscn" id="5_yp48q"]
+[ext_resource type="Script" uid="uid://cx6rs1fffn1le" path="res://Scripts/combat_tracker.gd" id="7_6yy46"]
+[ext_resource type="PackedScene" uid="uid://kvvxeavxapw" path="res://Scenes/hitbox_editor_.tscn" id="7_f6sb3"]
+
+[node name="Scene" type="Node2D" unique_id=116209546 node_paths=PackedStringArray("combat_manager", "combat_ui", "pause_menu", "stats_editor", "hitbox_editor", "combat_tracker")]
+process_mode = 3
+script = ExtResource("1_3253y")
+combat_manager = NodePath("CombatManager")
+combat_ui = NodePath("Ui")
+pause_menu = NodePath("PauseMenu")
+stats_editor = NodePath("StatsEditor")
+hitbox_editor = NodePath("HitboxEditor")
+combat_tracker = NodePath("CombatTracker")
+
+[node name="CombatManager" type="Node2D" parent="." unique_id=1148968224 groups=["Manager"]]
+unique_name_in_owner = true
+process_mode = 3
+script = ExtResource("2_u3cyc")
+
+[node name="Ui" parent="." unique_id=1800789930 node_paths=PackedStringArray("combat_manager", "qte_display") groups=["UI"] instance=ExtResource("3_m7jmp")]
+unique_name_in_owner = true
+process_mode = 3
+combat_manager = NodePath("../CombatManager")
+qte_display = NodePath("../QTEDisplay")
+
+[node name="QTEDisplay" parent="." unique_id=1989386193 instance=ExtResource("4_6yy46")]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="PauseMenu" parent="." unique_id=1888917948 instance=ExtResource("4_u3cyc")]
+unique_name_in_owner = true
+process_mode = 3
+anchors_preset = 0
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 1002.0
+offset_top = 266.0
+offset_right = 1147.0
+offset_bottom = 394.0
+grow_horizontal = 1
+grow_vertical = 1
+size_flags_horizontal = 4
+
+[node name="StatsEditor" parent="." unique_id=1366687811 instance=ExtResource("5_yp48q")]
+unique_name_in_owner = true
+process_mode = 3
+size_flags_horizontal = 6
+size_flags_vertical = 6
+
+[node name="HitboxEditor" parent="." unique_id=325017624 instance=ExtResource("7_f6sb3")]
+
+[node name="CombatTracker" type="Node" parent="." unique_id=467615047 node_paths=PackedStringArray("combat_manager", "combat_ui")]
+script = ExtResource("7_6yy46")
+combat_manager = NodePath("../CombatManager")
+combat_ui = NodePath("../Ui")

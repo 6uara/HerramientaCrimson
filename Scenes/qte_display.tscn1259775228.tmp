@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://brql841bsmcai"]
+
+[ext_resource type="Script" uid="uid://0svre2kb2woo" path="res://Scripts/qtedisplay.gd" id="1_nx13j"]
+[ext_resource type="PackedScene" uid="uid://cbi3byo1t3rwr" path="res://Scenes/qte_controller.tscn" id="2_qbbff"]
+[ext_resource type="Texture2D" uid="uid://w6u67bfh5h5c" path="res://Assets/target.png" id="3_lg01w"]
+
+[node name="QTEDisplay" type="Control" unique_id=1989386193 node_paths=PackedStringArray("qte_controller", "confirm_button", "sprite_node")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_nx13j")
+qte_controller = NodePath("QTEController")
+confirm_button = NodePath("Confirm")
+sprite_node = NodePath("TextureRect")
+
+[node name="QTEController" parent="." unique_id=137434951 node_paths=PackedStringArray("qte_controller", "confirm_button", "sprite_node") instance=ExtResource("2_qbbff")]
+qte_controller = NodePath(".")
+confirm_button = NodePath("../Confirm")
+sprite_node = NodePath("../TextureRect")
+
+[node name="Confirm" type="Button" parent="." unique_id=1705302279]
+layout_mode = 0
+offset_right = 8.0
+offset_bottom = 8.0
+
+[node name="TextureRect" type="TextureRect" parent="." unique_id=1334604480]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+texture = ExtResource("3_lg01w")

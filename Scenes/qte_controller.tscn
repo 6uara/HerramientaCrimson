@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://cbi3byo1t3rwr"]
+
+[ext_resource type="Script" uid="uid://cn4kmn1mv8vyj" path="res://Scripts/qtecontroller.gd" id="1_arps4"]
+
+[node name="QTEController" type="Node" unique_id=288760038 node_paths=PackedStringArray("qte_controller")]
+script = ExtResource("1_arps4")
+qte_controller = NodePath("")

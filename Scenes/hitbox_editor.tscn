@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://bt8ejhsiqxk77"]
+
+[ext_resource type="Script" uid="uid://bcbwvg47ystmw" path="res://Scripts/hitboxEditor.gd" id="1_11f1y"]
+[ext_resource type="Texture2D" uid="uid://w6u67bfh5h5c" path="res://Assets/target.png" id="2_hwmqo"]
+
+[node name="HitboxEditor" type="Control" unique_id=325017624 node_paths=PackedStringArray("btn_close", "btn_reset", "btn_add_zone", "enemy_tab_bar", "zone_list_container", "sprite_display")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("1_11f1y")
+btn_close = NodePath("VBoxContainer2/HBoxContainer/Close")
+btn_reset = NodePath("VBoxContainer2/HBoxContainer/Reset")
+btn_add_zone = NodePath("VBoxContainer2/HBoxContainer/AddZone")
+enemy_tab_bar = NodePath("VBoxContainer2/TabBar")
+zone_list_container = NodePath("VBoxContainer2/VBoxContainer")
+sprite_display = NodePath("TextureRect")
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="." unique_id=21607412]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="TabBar" type="TabBar" parent="VBoxContainer2" unique_id=493320821]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer2" unique_id=830816719]
+layout_mode = 2
+
+[node name="AddZone" type="Button" parent="VBoxContainer2/HBoxContainer" unique_id=627134141]
+layout_mode = 2
+text = "Add Zone"
+
+[node name="Reset" type="Button" parent="VBoxContainer2/HBoxContainer" unique_id=1222506906]
+layout_mode = 2
+text = "Reset"
+
+[node name="Close" type="Button" parent="VBoxContainer2/HBoxContainer" unique_id=232278104]
+layout_mode = 2
+text = "Close"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer2" unique_id=871648530]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="." unique_id=873358437]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 117.0
+offset_top = 5.0
+offset_right = -135.0
+offset_bottom = 224.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_hwmqo")
+expand_mode = 1
+
+[node name="GridContainer" type="GridContainer" parent="." unique_id=490918100]
+z_index = 1
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0

@@ -4,11 +4,7 @@
 
 [node name="StatsEditor" type="Control" unique_id=1366687811 node_paths=PackedStringArray("tab_container", "btn_apply", "btn_cancel", "btn_reset", "status_label")]
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+anchors_preset = 0
 size_flags_horizontal = 4
 size_flags_vertical = 4
 script = ExtResource("1_g62nb")
@@ -20,17 +16,20 @@ status_label = NodePath("HBoxContainer/Status")
 
 [node name="TabContainer" type="TabContainer" parent="." unique_id=1402719805]
 unique_name_in_owner = true
-layout_mode = 0
-offset_right = 1148.0
-offset_bottom = 613.0
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 tab_alignment = 1
 all_tabs_in_front = true
 
 [node name="HBoxContainer" type="VBoxContainer" parent="." unique_id=998652639]
 layout_mode = 0
-offset_top = 615.0
+offset_top = 640.0
 offset_right = 224.0
-offset_bottom = 716.0
+offset_bottom = 768.0
 alignment = 1
 
 [node name="Apply" type="Button" parent="HBoxContainer" unique_id=1415169406]

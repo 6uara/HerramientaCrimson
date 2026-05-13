@@ -1,18 +1,20 @@
 # ElipseCalculator.gd
-# Calcula puntos aleatorios dentro de una elipse para los disparos
-# posteriores al primero (que fue determinado por el QTE).
+# Genera puntos aleatorios dentro de una elipse usando las fórmulas del GDD:
+#   q  = 2π · u
+#   w  = √v
+#   rx = r · √a
+#   ry = r · √b
+#   n  = h + rx · w · cos(q)
+#   m  = k + ry · w · sin(q)
 class_name ElipseCalculator
 extends RefCounted
 
 # Variables de la elipse (configurables por arma/jugador)
-var h: float = 0.0    # Desplazamiento X del centro (0 = encima del disparo anterior)
-var k: float = 0.0    # Altura Y donde se genera la elipse
-var r: float = 1.0    # Radio base
-var a: float = 1.0    # Estiramiento en X
-var b: float = 1.0    # Achatamiento en Y
-
-# Punto de anclaje — se actualiza con cada disparo para encadenar elipses
-var _anchor: Vector2 = Vector2.ZERO
+var h: float = 0.0    # centro X de la elipse
+var k: float = 0.0    # centro Y de la elipse
+var r: float = 1.0    # radio general
+var a: float = 1.0    # escala horizontal
+var b: float = 1.0    # escala vertical
 
 func setup(p_h: float, p_k: float, p_r: float, p_a: float, p_b: float) -> void:
 	h = p_h
@@ -21,46 +23,29 @@ func setup(p_h: float, p_k: float, p_r: float, p_a: float, p_b: float) -> void:
 	a = p_a
 	b = p_b
 
-func set_anchor(point: Vector2) -> void:
-	_anchor = point
-
-# Genera el siguiente punto aleatorio dentro de la elipse,
-# encadenado al disparo anterior (usa n del disparo previo como nuevo h).
+# Genera punto aleatorio dentro de la elipse independiente (h, k son absolutos)
 func next_point() -> Vector2:
-	# t avanza linealmente — usamos tiempo real para variación constante
-	var t := fmod(Time.get_ticks_msec() / 1000.0, 2.0) - 1.0  # -1 a 1
+	var u: float = randf()        # 0..1
+	var v: float = randf()        # 0..1
+	var q: float = 2.0 * PI * u   # ángulo
+	var w: float = sqrt(v)        # distancia normalizada
+	var rx: float = r * sqrt(a)
+	var ry: float = r * sqrt(b)
+	var n: float = h + rx * w * cos(q)
+	var m: float = k + ry * w * sin(q)
+	return Vector2(n, m)
 
-	# u y v: números aleatorios entre -1 y 1 influenciados por t
-	var u = randf_range(-1.0, 1.0) * (1.0 - abs(t) * 0.3)
-	var v = randf_range(-1.0, 1.0) * (1.0 - abs(t) * 0.3)
-
-	# q: ángulo del punto en la elipse
-	var q := atan2(v, u)
-
-	# w: distancia del centro (entre 0 y 1, con distribución suave)
-	var w := sqrt(abs(u * v))
-
-	# rx y ry: radio en cada eje
-	var rx := r * a
-	var ry := r * b
-
-	# n y m: coordenadas del punto aleatorio
-	# n usa _anchor.x como base (encadenado al disparo anterior)
-	var n := _anchor.x + h + rx * w * cos(q)
-	var m := k + ry * w * sin(q)
-
-	var point := Vector2(n, m)
-	_anchor = point  # El siguiente disparo parte de este punto
-	return point
-
-# Versión sin encadenamiento (elipses independientes)
-func next_point_independent(center: Vector2) -> Vector2:
-	var u := randf_range(-1.0, 1.0)
-	var v := randf_range(-1.0, 1.0)
-	var q := atan2(v, u)
-	var w := sqrt(abs(u * v))
-	var rx := r * a
-	var ry := r * b
-	var n := center.x + h + rx * w * cos(q)
-	var m := center.y + k + ry * w * sin(q)
+# Genera punto encadenado a un punto anterior (usa el anterior como nuevo h)
+# El doc dice: "se cambia la fórmula de punto aleatorio (n,m) se cambian
+# los valores h y se reemplaza por la variable n"
+# m2 mantiene k igual (no se reemplaza).
+func next_point_from(previous: Vector2) -> Vector2:
+	var u: float = randf()
+	var v: float = randf()
+	var q: float = 2.0 * PI * u
+	var w: float = sqrt(v)
+	var rx: float = r * sqrt(a)
+	var ry: float = r * sqrt(b)
+	var n: float = previous.x + rx * w * cos(q)
+	var m: float = k + ry * w * sin(q)
 	return Vector2(n, m)

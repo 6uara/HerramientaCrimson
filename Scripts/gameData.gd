@@ -4,7 +4,7 @@ extends Node
 
 var player_data: Array[Dictionary] = []
 var enemy_data: Array[Dictionary] = []
-var _initialized := false
+var _initialized = false
 
 func ensure_defaults() -> void:
 	if _initialized:
@@ -56,6 +56,9 @@ func ensure_defaults() -> void:
 		{ "name": "Tank",   "max_hp": 350.0, "speed": 0.4, "damage": 50.0, "atb_max": 100.0, "sprite_path": "" },
 	]
 
+	# Cargar zonas guardadas (si existen) sobre los defaults
+	load_enemy_zones()
+
 func build_players() -> Array:
 	var PlayerCharacterScript = load("res://Scripts/playercharacter.gd")
 	var result: Array = []
@@ -93,3 +96,55 @@ func build_enemies() -> Array:
 		e.atb_max        = d["atb_max"]
 		result.append(e)
 	return result
+
+# ──────────────────────────────────────────────
+#  PERSISTENCIA (savefile)
+# ──────────────────────────────────────────────
+const SAVE_PATH = "user://hitbox_zones.save"
+
+func save_enemy_zones() -> void:
+	# Solo guardamos las zonas/hitboxes de cada enemigo, no los stats
+	var payload = {}
+	for i in enemy_data.size():
+		var d = enemy_data[i]
+		var entry = {
+			"name": d.get("name", ""),
+		}
+		if d.has("grid_cells"):
+			entry["grid_cells"] = d["grid_cells"]
+		if d.has("grid_zones"):
+			entry["grid_zones"] = d["grid_zones"]
+		payload[d.get("name", "enemy_%d" % i)] = entry
+
+	var f = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		push_error("No se pudo abrir el savefile para escritura")
+		return
+	f.store_string(JSON.stringify(payload))
+	f.close()
+	print("[GameData] Hitboxes guardadas en ", SAVE_PATH)
+
+func load_enemy_zones() -> void:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var f = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var text = f.get_as_text()
+	f.close()
+
+	var parsed = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_error("Savefile corrupto o formato inválido")
+		return
+
+	# Mergear los datos guardados con los enemigos actuales (matchear por nombre)
+	for i in enemy_data.size():
+		var name = enemy_data[i].get("name", "")
+		if parsed.has(name):
+			var saved = parsed[name]
+			if saved.has("grid_cells"):
+				enemy_data[i]["grid_cells"] = saved["grid_cells"]
+			if saved.has("grid_zones"):
+				enemy_data[i]["grid_zones"] = saved["grid_zones"]
+	print("[GameData] Hitboxes cargadas desde ", SAVE_PATH)

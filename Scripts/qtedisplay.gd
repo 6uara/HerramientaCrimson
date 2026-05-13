@@ -16,7 +16,8 @@ signal attack_resolved(shots: Array)  # [{point, damage, zone, hit}]
 # ──────────────────────────────────────────────
 @export var qte_controller: Node  # Asignar nodo con QTEController.gd
 @export var confirm_button: Button
-@export var sprite_node: TextureRect   # TextureRect con el sprite del enemigo
+@export var sprite_panel: Control      # Panel que contiene el sprite (define posición/tamaño)
+@export var sprite_node: TextureRect   # TextureRect con el sprite del enemigo (hijo del sprite_panel)
 
 # ──────────────────────────────────────────────
 #  Placeholder — se usa si no hay sprite real cargado
@@ -76,7 +77,7 @@ func _input(event: InputEvent) -> void:
 var _debug_overlay: Control = null
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Anchors se configuran desde el Inspector de la escena, no por código
 
 	# Crear overlay encima del sprite para dibujar las zonas debug
 	_debug_overlay = Control.new()
@@ -84,7 +85,12 @@ func _ready() -> void:
 	_debug_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_debug_overlay.size = get_viewport_rect().size
 	add_child(_debug_overlay)
+	move_child(_debug_overlay, 0)  # Detrás de todo
 	_debug_overlay.draw.connect(_on_debug_overlay_draw)
+
+	# Asegurar que el botón de confirmar quede al frente
+	if confirm_button:
+		move_child(confirm_button, get_child_count() - 1)
 	# Mantener overlay del tamaño del viewport
 	get_viewport().size_changed.connect(func():
 		_debug_overlay.size = get_viewport_rect().size
@@ -140,18 +146,19 @@ func start_qte(player: Object, bullets: int, sprite_texture: Texture2D = null) -
 	qte_controller.start(player)
 
 func _update_sprite_rect() -> void:
-	var sprite_size = Vector2(200.0, 350.0)
-	if sprite_node.texture != null:
-		var tex = sprite_node.texture
-		var scale = sprite_size.y / tex.get_height()
-		sprite_size = tex.get_size() * scale
+	# Usar el sprite_panel como referencia de área del sprite — vos lo posicionás con anchors
+	if sprite_panel and sprite_panel.is_inside_tree() and sprite_panel.size.x > 1:
+		var local_pos = sprite_panel.global_position - global_position if is_inside_tree() else sprite_panel.position
+		_sprite_rect = Rect2(local_pos, sprite_panel.size)
+	elif sprite_node and sprite_node.is_inside_tree() and sprite_node.size.x > 1:
+		var local_pos = sprite_node.global_position - global_position if is_inside_tree() else sprite_node.position
+		_sprite_rect = Rect2(local_pos, sprite_node.size)
+	else:
+		var fallback = Vector2(200, 350)
+		var vp = get_viewport_rect().size
+		_sprite_rect = Rect2(vp / 2 - fallback / 2, fallback)
 
-	# Usar viewport si el Control aún no tiene tamaño
-	var s = size if size.x > 10 else get_viewport_rect().size
-	var center = s / 2.0
-	_sprite_rect = Rect2(center - sprite_size / 2.0, sprite_size)
-	sprite_node.position = _sprite_rect.position
-	sprite_node.size     = _sprite_rect.size
+
 
 # ──────────────────────────────────────────────
 #  PROCESO
@@ -182,15 +189,25 @@ func _on_qte_completed(point: Vector2) -> void:
 	_line_h = point.x
 	_line_v = point.y
 
-	# Primer disparo — punto del QTE + chance de impacto
+	# Primer disparo — punto del QTE
 	var first = _resolve_shot(point, _player)
 	_resolved.append(first)
-	_elipse.set_anchor(point)
 
-	# Disparos siguientes — elipse encadenada + chance
+	# Configurar la elipse con los stats del jugador.
+	# k = centro Y de la elipse, lo seteamos al Y del primer disparo
+	_elipse.h = 0.0
+	_elipse.k = point.y
+	_elipse.r = _player.elipse_r
+	_elipse.a = _player.elipse_a
+	_elipse.b = _player.elipse_b
+
+	# Disparos siguientes — cada uno usa el anterior como anchor en X (encadenado)
+	var previous_point = point
 	for i in range(1, _shots_pending):
-		var ep = _elipse.next_point().clamp(Vector2.ZERO, Vector2.ONE)
+		var ep: Vector2 = _elipse.next_point_from(previous_point)
+		ep = ep.clamp(Vector2.ZERO, Vector2.ONE)
 		_resolved.append(_resolve_shot(ep, _player))
+		previous_point = ep
 
 	queue_redraw()
 
@@ -204,15 +221,19 @@ func _on_qte_completed(point: Vector2) -> void:
 func _resolve_shot(point: Vector2, player: Object) -> Dictionary:
 	var zone: String = "Torso"
 	var mult: float = 1.0
+	var inside_silhouette: bool = true
 	var enemy_data: Dictionary = _current_enemy_data
 
 	if enemy_data.has("grid_cells") and enemy_data.has("grid_zones") \
 			and not enemy_data["grid_cells"].is_empty() and not enemy_data["grid_zones"].is_empty():
 		var zone_result: Dictionary = HitboxEditorScript.get_zone_at(point, enemy_data)
-		zone = zone_result.get("name", "Torso")
-		mult = float(zone_result.get("mult", 1.0))
+		zone = zone_result.get("name", "Sin zona")
+		mult = float(zone_result.get("mult", 0.0))
+		# Si el lookup devuelve mult 0 o nombre "Sin zona", el disparo cayó fuera de la silueta
+		if zone == "Sin zona" or (mult == 0.0 and zone_result.get("name", "") == "Sin zona"):
+			inside_silhouette = false
 	else:
-		# Fallback: porcentajes verticales
+		# Fallback: porcentajes verticales (todo cuenta como dentro)
 		if point.y <= 0.20:
 			zone = "Cabeza"; mult = 2.0
 		elif point.y <= 0.60:
@@ -224,16 +245,19 @@ func _resolve_shot(point: Vector2, player: Object) -> Dictionary:
 		player.get("hit_chance_base") - player.get("hit_chance_penalty") * player.get("bullets_spent_total"),
 		0.0, 1.0
 	)
-	var hit = randf() <= chance
+	var hit_chance = randf() <= chance
+	# El disparo solo cuenta si está dentro de la silueta Y pasa el roll de chance
+	var hit = inside_silhouette and hit_chance
 	var damage = _bullet_damage * mult if hit else 0.0
 
 	return {
-		"point":  point,
-		"zone":   zone,
-		"hit":    hit,
-		"chance": chance,
-		"damage": damage,
-		"mult":   mult,
+		"point":           point,
+		"zone":            zone,
+		"hit":             hit,
+		"chance":          chance,
+		"inside_silhouette": inside_silhouette,
+		"damage":          damage,
+		"mult":            mult,
 	}
 
 func _get_zone_mult(_zone_name: String, _hitboxes: Array) -> float:
@@ -329,8 +353,10 @@ func _on_debug_overlay_draw() -> void:
 
 	# Forzar recálculo del rect del sprite usando la posición real del TextureRect
 	var s: Rect2
-	if sprite_node and sprite_node.size.x > 1:
-		s = Rect2(sprite_node.position, sprite_node.size)
+	if sprite_panel and sprite_panel.is_inside_tree() and _debug_overlay.is_inside_tree() and sprite_panel.size.x > 1:
+		s = Rect2(sprite_panel.global_position - _debug_overlay.global_position, sprite_panel.size)
+	elif sprite_node and sprite_node.is_inside_tree() and _debug_overlay.is_inside_tree() and sprite_node.size.x > 1:
+		s = Rect2(sprite_node.global_position - _debug_overlay.global_position, sprite_node.size)
 	else:
 		s = _sprite_rect
 	if s.size.x < 1 or s.size.y < 1:

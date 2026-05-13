@@ -260,6 +260,22 @@ func _on_tab_changed(idx: int) -> void:
 # ──────────────────────────────────────────────
 #  CARGA / GUARDADO
 # ──────────────────────────────────────────────
+func _build_default_cells() -> Array:
+	# Default: Cabeza filas 0-1, Torso filas 2-7, Piernas filas 8-14
+	# Asume zonas en orden [Cabeza, Torso, Piernas]
+	var cells = []
+	for r in GRID_ROWS:
+		for c in GRID_COLS:
+			var zone_idx = -1
+			if r <= 1:
+				zone_idx = 0  # Cabeza
+			elif r <= 7:
+				zone_idx = 1  # Torso
+			else:
+				zone_idx = 2  # Piernas
+			cells.append(zone_idx)
+	return cells
+
 func _load_enemy(idx: int) -> void:
 	_current_enemy = idx
 	var d = GameData.enemy_data[idx]
@@ -283,8 +299,9 @@ func _load_enemy(idx: int) -> void:
 		for v in d["grid_cells"]:
 			_cells.append(int(v))
 	else:
-		for i in GRID_COLS * GRID_ROWS:
-			_cells.append(-1)
+		# Sin datos guardados: aplicar layout default
+		_cells = _build_default_cells()
+		_save_current()
 
 	_selected_zone = 0
 
@@ -312,6 +329,8 @@ func _save_current() -> void:
 		})
 	d["grid_zones"] = zones_out
 	d["grid_cells"] = _cells.duplicate()
+	# Persistir en savefile
+	GameData.save_enemy_zones()
 
 # ──────────────────────────────────────────────
 #  ZONAS
@@ -320,9 +339,7 @@ func _reset_all() -> void:
 	_zones = []
 	for dz in DEFAULT_ZONES:
 		_zones.append({ "name": dz["name"], "mult": dz["mult"], "color": dz["color"] })
-	_cells = []
-	for i in GRID_COLS * GRID_ROWS:
-		_cells.append(-1)
+	_cells = _build_default_cells()
 	_selected_zone = 0
 	_refresh_grid_visual()
 	_refresh_zone_list()

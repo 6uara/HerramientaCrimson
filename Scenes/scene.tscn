@@ -9,54 +9,79 @@
 [ext_resource type="Script" uid="uid://cx6rs1fffn1le" path="res://Scripts/combat_tracker.gd" id="7_6yy46"]
 [ext_resource type="PackedScene" uid="uid://kvvxeavxapw" path="res://Scenes/hitbox_editor_.tscn" id="7_f6sb3"]
 
-[node name="Scene" type="Node2D" unique_id=116209546 node_paths=PackedStringArray("combat_manager", "combat_ui", "pause_menu", "stats_editor", "hitbox_editor", "combat_tracker")]
+[node name="Scene" type="Node" unique_id=147021018 node_paths=PackedStringArray("combat_manager", "combat_ui", "pause_menu", "stats_editor", "hitbox_editor", "combat_tracker")]
 process_mode = 3
 script = ExtResource("1_3253y")
 combat_manager = NodePath("CombatManager")
-combat_ui = NodePath("Ui")
-pause_menu = NodePath("PauseMenu")
-stats_editor = NodePath("StatsEditor")
-hitbox_editor = NodePath("HitboxEditor")
+combat_ui = NodePath("Panel/Ui")
+pause_menu = NodePath("Panel/PauseMenu")
+stats_editor = NodePath("Panel/StatsEditor")
+hitbox_editor = NodePath("Panel/HitboxEditor")
 combat_tracker = NodePath("CombatTracker")
 
-[node name="CombatManager" type="Node2D" parent="." unique_id=1148968224 groups=["Manager"]]
+[node name="CombatManager" type="Node" parent="." unique_id=917351770 groups=["Manager"]]
 unique_name_in_owner = true
 process_mode = 3
 script = ExtResource("2_u3cyc")
 
-[node name="Ui" parent="." unique_id=1800789930 node_paths=PackedStringArray("combat_manager", "qte_display") groups=["UI"] instance=ExtResource("3_m7jmp")]
-unique_name_in_owner = true
-process_mode = 3
-combat_manager = NodePath("../CombatManager")
-qte_display = NodePath("../QTEDisplay")
-
-[node name="QTEDisplay" parent="." unique_id=1989386193 instance=ExtResource("4_6yy46")]
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="PauseMenu" parent="." unique_id=1888917948 instance=ExtResource("4_u3cyc")]
-unique_name_in_owner = true
-process_mode = 3
-anchors_preset = 0
-anchor_right = 0.0
-anchor_bottom = 0.0
-offset_left = 1002.0
-offset_top = 266.0
-offset_right = 1147.0
-offset_bottom = 394.0
-grow_horizontal = 1
-grow_vertical = 1
-size_flags_horizontal = 4
-
-[node name="StatsEditor" parent="." unique_id=1366687811 instance=ExtResource("5_yp48q")]
-unique_name_in_owner = true
-process_mode = 3
-size_flags_horizontal = 6
-size_flags_vertical = 6
-
-[node name="HitboxEditor" parent="." unique_id=325017624 instance=ExtResource("7_f6sb3")]
-
 [node name="CombatTracker" type="Node" parent="." unique_id=467615047 node_paths=PackedStringArray("combat_manager", "combat_ui")]
 script = ExtResource("7_6yy46")
 combat_manager = NodePath("../CombatManager")
-combat_ui = NodePath("../Ui")
+combat_ui = NodePath("../Panel/Ui")
+
+[node name="Panel" type="Panel" parent="." unique_id=557337310]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Ui" parent="Panel" unique_id=1800789930 node_paths=PackedStringArray("combat_manager", "qte_display") instance=ExtResource("3_m7jmp")]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_right = 0.0
+anchor_bottom = 0.5
+grow_horizontal = 1
+combat_manager = NodePath("../../CombatManager")
+qte_display = NodePath("../QTEDisplay")
+
+[node name="PauseMenu" parent="Panel" unique_id=1738304921 instance=ExtResource("4_u3cyc")]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+offset_left = -116.0
+offset_top = -163.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="QTEDisplay" parent="Panel" unique_id=1076856728 instance=ExtResource("4_6yy46")]
+custom_minimum_size = Vector2(300, 300)
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5415
+anchor_top = -0.028333327
+anchor_right = 1.1284688
+anchor_bottom = 0.7522917
+offset_left = 149.504
+offset_top = 149.76
+offset_right = -151.552
+offset_bottom = -149.76001
+metadata/_edit_use_anchors_ = true
+
+[node name="StatsEditor" parent="Panel" unique_id=1366687811 instance=ExtResource("5_yp48q")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HitboxEditor" parent="Panel" unique_id=1308570502 instance=ExtResource("7_f6sb3")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

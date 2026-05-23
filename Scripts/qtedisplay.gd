@@ -90,7 +90,6 @@ func _ready() -> void:
 	if confirm_button:
 		move_child(confirm_button, get_child_count() - 1)
 
-
 	qte_controller.axis_changed.connect(_on_axis_changed)
 	qte_controller.qte_completed.connect(_on_qte_completed)
 	confirm_button.pressed.connect(_on_confirm_pressed)
@@ -156,8 +155,6 @@ func _update_sprite_rect() -> void:
 		var vp = get_viewport_rect().size
 		_sprite_rect = Rect2(vp / 2 - fallback / 2, fallback)
 
-
-
 # ──────────────────────────────────────────────
 #  PROCESO
 # ──────────────────────────────────────────────
@@ -201,12 +198,24 @@ func _on_qte_completed(point: Vector2) -> void:
 	var previous_point = point
 	for i in range(1, _shots_pending):
 		var shot_set: Dictionary = _player.call("get_elipse_set", i)
-		_elipse.h = float(shot_set.get("h", 0.0))
-		_elipse.k = previous_point.y + float(shot_set.get("k", 0.0))
+		
+		# --- CORRECCIÓN MATEMÁTICA ---
+		# Extraemos el offset relativo porque desmos_to_game convierte 0 en 0.5 absoluto.
+		var offset_x = float(shot_set.get("h", 0.5)) - 0.5
+		var offset_y = float(shot_set.get("k", 0.5)) - 0.5
+
+		# La X se encadena al impacto previo sumando el offset.
+		_elipse.h = previous_point.x + offset_x
+		
+		# Según la lógica del GDD para este retroceso, la Y mantiene como base el tiro inicial.
+		_elipse.k = point.y + offset_y
+		# -----------------------------
+		
 		_elipse.r = float(shot_set.get("r", 0.05))
 		_elipse.a = float(shot_set.get("a", 1.0))
 		_elipse.b = float(shot_set.get("b", 1.0))
 		var ep: Vector2 = _elipse.next_point_from(previous_point)
+		
 		ep = ep.clamp(Vector2.ZERO, Vector2.ONE)
 		_resolved.append(_resolve_shot(ep, _player))
 		previous_point = ep
@@ -215,7 +224,6 @@ func _on_qte_completed(point: Vector2) -> void:
 	print("[QTE] shots resolved, esperando boton Continuar...")
 
 	# El QTE ya no se cierra automáticamente — espera al botón "Continuar"
-	# que se muestra como confirm_button con texto "Continuar"
 	if confirm_button:
 		confirm_button.text = "Continuar"
 		confirm_button.disabled = false
@@ -318,19 +326,9 @@ func _draw() -> void:
 		draw_circle(Vector2(px, py), 5.0, Color.WHITE, false, 1.5)
 
 		var label = "%s  %.0f dmg" % [shot["zone"], shot["damage"]] if shot["hit"] \
-			else "FALLO (%.0f%%)" % (shot["chance"] * 100)
+			else "FALLO"
 		draw_string(font, Vector2(px + 8, py + 4), label,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE)
-
-	# Chance actual en la esquina
-	if _player and _phase != "done":
-		var chance_now = clampf(
-			0.0,  # hit_chance eliminado
-			0.0, 1.0
-		)
-		draw_string(font, Vector2(s.position.x, s.position.y + s.size.y + 20),
-			"Chance de impacto: %.0f%%" % (chance_now * 100),
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.YELLOW)
 
 
 # ──────────────────────────────────────────────
@@ -350,9 +348,6 @@ func _on_debug_overlay_draw() -> void:
 		return
 
 	# Forzar recálculo del rect del sprite usando la posición real del TextureRect
-	# Si debug_overlay es hijo del sprite_panel con Full Rect, su área local
-	# coincide con el sprite_panel. Las coordenadas (0,0) → tamaño del overlay
-	# representan toda la silueta.
 	var s = Rect2(Vector2.ZERO, debug_overlay.size)
 	if s.size.x < 1 or s.size.y < 1:
 		return  # rect aún no calculado
@@ -373,17 +368,12 @@ func _on_debug_overlay_draw() -> void:
 			var zone_idx = int(cells[i]) if i < cells.size() else -1
 			if zone_idx >= 0 and zone_idx < zones.size():
 				var z = zones[zone_idx]
-				# Fill opaco-fuerte para ver bien la zona
 				var fill_col = Color(z["cr"], z["cg"], z["cb"], 0.75)
 				debug_overlay.draw_rect(cell_rect, fill_col)
-				# Borde blanco grueso
 				debug_overlay.draw_rect(cell_rect, Color.WHITE, false, 1.5)
 			else:
-				# Celda vacía: solo borde gris claro para ver la grilla
 				debug_overlay.draw_rect(cell_rect, Color(1, 1, 1, 0.25), false, 1.0)
 
-	print("[overlay draw] dibujando ", cells.size(), " celdas, ", zones.size(), " zonas, sprite_rect=", s)
-	# Etiquetas de zona — escribir el nombre en la primera celda asignada a cada zona
 	var font = ThemeDB.fallback_font
 	var zone_labeled = {}
 	for i in cells.size():
@@ -401,11 +391,9 @@ func _on_debug_overlay_draw() -> void:
 			"%s x%.1f" % [z["name"], z["mult"]],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE)
 
-	# Dibujar las elipses de cada disparo del jugador activo
 	if _player != null:
 		_draw_elipses_debug(s)
 
-	# Indicador de debug mode
 	debug_overlay.draw_string(font, Vector2(s.position.x, s.position.y - 10),
 		"DEBUG MODE - F1 para ocultar",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1.0, 0.8, 0.2))
@@ -417,7 +405,6 @@ func _draw_elipses_debug(sprite_rect: Rect2) -> void:
 	if cad <= 0:
 		return
 
-	# Colores por disparo (ciclo cromático para distinguir)
 	var colors = [
 		Color(1.0, 0.2, 0.2, 0.9),   # rojo
 		Color(0.2, 1.0, 0.2, 0.9),   # verde
@@ -431,20 +418,16 @@ func _draw_elipses_debug(sprite_rect: Rect2) -> void:
 		var set_game: Dictionary = _player.call("get_elipse_set", i)
 		var col: Color = colors[i % colors.size()]
 
-		# Las coords del set están en espacio del juego (0..1)
-		# h, k: centro normalizado; r: radio; a, b: factores de escala
 		var h = float(set_game.get("h", 0.5))
 		var k = float(set_game.get("k", 0.5))
 		var r = float(set_game.get("r", 0.05))
 		var a = float(set_game.get("a", 1.0))
 		var b = float(set_game.get("b", 1.0))
 
-		# Convertir a píxeles del sprite_rect
 		var center_px = sprite_rect.position + Vector2(h * sprite_rect.size.x, k * sprite_rect.size.y)
 		var rx_px = r * sqrt(a) * sprite_rect.size.x
 		var ry_px = r * sqrt(b) * sprite_rect.size.y
 
-		# Dibujar elipse como polyline (Godot no tiene draw_ellipse nativo)
 		var points = PackedVector2Array()
 		var segments = 48
 		for seg in segments + 1:
@@ -452,7 +435,6 @@ func _draw_elipses_debug(sprite_rect: Rect2) -> void:
 			points.append(center_px + Vector2(cos(angle) * rx_px, sin(angle) * ry_px))
 		debug_overlay.draw_polyline(points, col, 2.0, true)
 
-		# Marcar el centro con una cruz pequeña
 		debug_overlay.draw_line(
 			center_px + Vector2(-4, 0), center_px + Vector2(4, 0),
 			col, 1.5)
@@ -460,7 +442,6 @@ func _draw_elipses_debug(sprite_rect: Rect2) -> void:
 			center_px + Vector2(0, -4), center_px + Vector2(0, 4),
 			col, 1.5)
 
-		# Etiqueta con el número de disparo cerca del centro
 		var font = ThemeDB.fallback_font
 		debug_overlay.draw_string(font, center_px + Vector2(6, -6),
 			"#%d" % (i + 1),

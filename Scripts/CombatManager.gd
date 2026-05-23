@@ -1,24 +1,3 @@
-# CombatManager.gd
-# ATB continuo (modo Wait jRPG) con cola FIFO de acciones.
-#
-# Estados:
-#   RUNNING        — ATB corriendo, cola consumiéndose
-#   PLAYER_MENU    — un jugador navega menú (ATB pausado)
-#   ACTION_PLAYING — se está ejecutando la acción de la cabeza de cola
-#
-# Flujo jugador:
-#   1. ATB del jugador llega a 100% → emite player_ready_changed (no actúa solo)
-#   2. UI llama queue_player_turn(player) → mete acción "player_turn" en cola
-#   3. ATB del actor en cola NO avanza hasta que su acción se resuelva
-#   4. Cuando llega a la cabeza → emite action_started con kind="player_turn"
-#   5. UI abre menú de acción (Atacar/Recargar)
-#   6. UI llama confirm_player_attack(target, bullets) o confirm_player_reload()
-#   7. confirm_player_attack arranca el QTE, resolve_player_attack lo cierra
-#
-# Flujo enemigo:
-#   1. ATB enemigo a 100% → entra a cola automáticamente
-#   2. Cuando llega a la cabeza → estado ACTION_PLAYING, emite action_started
-#   3. Después de ENEMY_ACTION_DURATION → aplica daño, emite action_resolved
 extends Node
 
 const PlayerCharacterScript = preload("res://Scripts/playercharacter.gd")
@@ -52,19 +31,11 @@ var enemy_chars: Array = []
 var combat_active: bool = false
 var state: State = State.RUNNING
 
-# Cola FIFO de acciones esperando ejecutarse
-# Cada acción: { "actor": Character, "kind": "attack"/"reload"/"enemy_attack",
-#               "target": Character, "bullets": int (solo player attack), ... }
 var _action_queue: Array = []
-
-# Acción que se está reproduciendo actualmente
 var _current_action = null
 var _action_timer: float = 0.0
 
-# Para compatibilidad con CombatUI / QTEDisplay
 var active_player_char = null
-
-# Track de qué jugadores ya están listos (para no re-emitir señal repetida)
 var _player_ready_state: Dictionary = {}
 
 # ──────────────────────────────────────────────
@@ -94,10 +65,8 @@ func _process(delta: float) -> void:
 	if not combat_active:
 		return
 
-	# Aplicar multiplicador de velocidad global
 	var scaled_delta = delta * GameData.game_speed
 
-	# ATB solo avanza en estado RUNNING
 	if state == State.RUNNING:
 		_tick_atb(scaled_delta)
 		_try_start_next_action()
@@ -105,7 +74,6 @@ func _process(delta: float) -> void:
 		_tick_current_action(scaled_delta)
 
 func _tick_atb(delta: float) -> void:
-	# Tick ATB jugadores
 	for p in player_chars:
 		if not p.get("is_alive"):
 			continue
@@ -115,7 +83,6 @@ func _tick_atb(delta: float) -> void:
 			_player_ready_state[p] = is_ready
 			emit_signal("player_ready_changed", p, is_ready)
 
-	# Tick ATB enemigos — los que llegan al 100% van directo a la cola
 	for e in enemy_chars:
 		if not e.get("is_alive"):
 			continue
@@ -123,11 +90,10 @@ func _tick_atb(delta: float) -> void:
 			continue
 		e.call("tick_atb", delta)
 		if e.get("atb") >= e.get("atb_max"):
-			# Enemigo entra automáticamente a la cola
 			var action = {
 				"actor": e,
 				"kind": "enemy_attack",
-				"target": null,  # se decide al ejecutar
+				"target": null,
 			}
 			_action_queue.append(action)
 			emit_signal("action_queued", action)
@@ -135,7 +101,6 @@ func _tick_atb(delta: float) -> void:
 func _try_start_next_action() -> void:
 	if _current_action != null or _action_queue.is_empty():
 		return
-	# Descartar acciones de actores muertos
 	while not _action_queue.is_empty():
 		var next = _action_queue[0]
 		if not next["actor"].get("is_alive"):
@@ -152,7 +117,6 @@ func _start_action(action: Dictionary) -> void:
 	emit_signal("state_changed", state)
 
 	if action["kind"] == "enemy_attack":
-		# Elegir target al momento de ejecutar (jugador vivo aleatorio)
 		var alive_players = get_alive_players()
 		if alive_players.is_empty():
 			_finish_current_action()
@@ -163,23 +127,19 @@ func _start_action(action: Dictionary) -> void:
 		emit_signal("action_started", action)
 
 	elif action["kind"] == "player_turn":
-		# Es el turno del jugador — abrir menú de acción (Atacar/Recargar)
-		# La UI espera la señal action_started y abre el menú correspondiente
 		active_player_char = action["actor"]
 		_action_timer = 0.0
 		emit_signal("action_started", action)
 
 	elif action["kind"] == "player_attack":
-		# Promovido desde player_turn por confirm_player_attack — el QTE ya está en marcha
 		active_player_char = action["actor"]
 		_action_timer = 0.0
-		# action_started ya se emitió en confirm_player_attack
 
 func _tick_current_action(delta: float) -> void:
 	if _current_action == null:
 		return
 	if _current_action["kind"] != "enemy_attack":
-		return  # los player attack se resuelven via callback externo
+		return
 	_action_timer -= delta
 	if _action_timer <= 0.0:
 		_resolve_enemy_attack()
@@ -191,12 +151,10 @@ func _resolve_enemy_attack() -> void:
 	var target = _current_action["target"]
 	var dmg = _current_action.get("damage", float(enemy.get("damage")))
 
-	# Si el enemigo murió durante su animación, no aplica daño
 	if not enemy.get("is_alive"):
 		_finish_current_action()
 		return
 
-	# Si el target murió mientras tanto, buscar otro (o cancelar)
 	if target == null or not target.get("is_alive"):
 		var alive_players = get_alive_players()
 		if alive_players.is_empty():
@@ -214,21 +172,19 @@ func _resolve_enemy_attack() -> void:
 	_finish_current_action()
 
 func _finish_current_action() -> void:
-	print("[CM] _finish_current_action - antes state: ", state)
+	print("[DEBUG CM] _finish_current_action ejecutado. Limpiando accion...")
 	_current_action = null
 	state = State.RUNNING
 	emit_signal("state_changed", state)
+	print("[DEBUG CM] Estado vuelto a RUNNING. Revisando fin de combate...")
 	_check_combat_end()
 
 # ──────────────────────────────────────────────
 #  API PARA JUGADOR (llamada por CombatUI)
 # ──────────────────────────────────────────────
 func queue_player_turn(player) -> bool:
-	# Encolar la intención de que este jugador tome turno.
-	# El ATB del jugador no avanza hasta que su acción se resuelva.
 	if not is_player_ready(player):
 		return false
-	# Verificar que no esté ya en cola
 	if _is_actor_in_queue_or_acting(player):
 		return false
 	var action = {
@@ -240,11 +196,7 @@ func queue_player_turn(player) -> bool:
 	emit_signal("action_queued", action)
 	return true
 
-# cancel_player_menu eliminado — la decisión de Atacar/Recargar
-# se hace cuando ya es el turno del jugador en la cola, no se puede cancelar
-
 func confirm_player_attack(target, bullets: int) -> void:
-	# Llamado durante el turno del jugador (kind == "player_turn" en la cabeza de cola).
 	print("[CM] confirm_player_attack llamado. _current_action: ", _current_action, " active: ", active_player_char)
 	if _current_action == null or _current_action.get("kind") != "player_turn":
 		print("[CM] confirm_player_attack ABORT — no hay current_action de tipo player_turn")
@@ -259,7 +211,6 @@ func confirm_player_attack(target, bullets: int) -> void:
 	emit_signal("action_started", _current_action)
 
 func confirm_player_reload() -> void:
-	# Llamado durante el turno del jugador. Recarga y termina la acción.
 	if _current_action == null or _current_action.get("kind") != "player_turn":
 		return
 	if active_player_char == null:
@@ -269,31 +220,31 @@ func confirm_player_reload() -> void:
 	active_player_char = null
 	_finish_current_action()
 
-# Cuando la acción del jugador llega a la cabeza, se emite action_started.
-# El CombatUI escucha esa señal, abre el QTE, y al terminar llama resolve_player_attack.
 func resolve_player_attack(damage_total: float) -> void:
-	print("[CM] resolve_player_attack llamado. _current_action: ", _current_action, " state: ", state)
+	print("[DEBUG CM] resolve_player_attack INICIO. _current_action: ", _current_action)
 	if _current_action == null or _current_action["kind"] != "player_attack":
-		print("[CM] EARLY RETURN — current_action es ", _current_action)
+		print("[DEBUG CM] ERROR: resolve_player_attack abortado (current_action es null o incorrecto)")
 		return
+		
 	var attacker = _current_action["actor"]
 	var target = _current_action["target"]
 
-	# Aplicar daño si target sigue vivo
 	if target != null and target.get("is_alive"):
+		print("[DEBUG CM] Aplicando ", damage_total, " de daño a ", target.get("character_name"))
 		target.call("take_damage", damage_total)
 		if not target.get("is_alive"):
+			print("[DEBUG CM] Target murio.")
 			emit_signal("character_died", target, false)
 			_remove_actor_from_queue(target)
-			# Si justo era el target de un enemigo actuando, cancelar
-			if _current_action != null and _current_action.get("target") == target:
-				pass  # ya está siendo resuelto
 
 	attacker.call("consume_atb")
 	_player_ready_state[attacker] = false
 	emit_signal("player_ready_changed", attacker, false)
+	
+	print("[DEBUG CM] Emitiendo action_resolved y limpiando turno activo.")
 	emit_signal("action_resolved", _current_action)
 	active_player_char = null
+	
 	_finish_current_action()
 
 # ──────────────────────────────────────────────
@@ -329,7 +280,6 @@ func _is_actor_in_queue_or_acting(actor) -> bool:
 	return false
 
 func _remove_actor_from_queue(actor) -> void:
-	# Filtrar acciones cuyo actor sea el muerto
 	var filtered = []
 	for a in _action_queue:
 		if a["actor"] != actor:

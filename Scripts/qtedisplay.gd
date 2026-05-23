@@ -335,10 +335,18 @@ func _draw() -> void:
 #  Debug mode: dibujar grilla de zonas
 # ──────────────────────────────────────────────
 func _on_debug_overlay_draw() -> void:
-	print("[overlay draw] debug=", _debug_mode, " enemy_data tiene grid_cells=", _current_enemy_data.has("grid_cells"))
 	if not _debug_mode:
 		return
 
+	var s = Rect2(Vector2.ZERO, debug_overlay.size)
+	if s.size.x < 1 or s.size.y < 1:
+		return  # rect aún no calculado
+
+	# 1. Dibujar Elipses PRIMERO (no dependen de la grilla)
+	if _player != null:
+		_draw_elipses_debug(s)
+
+	# 2. Dibujar Grilla (si el enemigo la tiene configurada)
 	var enemy_data: Dictionary = _current_enemy_data
 	if not enemy_data.has("grid_cells") or not enemy_data.has("grid_zones"):
 		return
@@ -347,17 +355,11 @@ func _on_debug_overlay_draw() -> void:
 	if cells.is_empty() or zones.is_empty():
 		return
 
-	# Forzar recálculo del rect del sprite usando la posición real del TextureRect
-	var s = Rect2(Vector2.ZERO, debug_overlay.size)
-	if s.size.x < 1 or s.size.y < 1:
-		return  # rect aún no calculado
-
 	var cols = 10
 	var rows = 15
 	var cell_w = s.size.x / cols
 	var cell_h = s.size.y / rows
 
-	# Dibujar TODAS las celdas (vacías incluidas) con borde para ver la grilla completa
 	for r in rows:
 		for c in cols:
 			var i = r * cols + c
@@ -390,9 +392,6 @@ func _on_debug_overlay_draw() -> void:
 		debug_overlay.draw_string(font, label_pos,
 			"%s x%.1f" % [z["name"], z["mult"]],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE)
-
-	if _player != null:
-		_draw_elipses_debug(s)
 
 	debug_overlay.draw_string(font, Vector2(s.position.x, s.position.y - 10),
 		"DEBUG MODE - F1 para ocultar",

@@ -70,32 +70,26 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_F1:
 			_debug_mode = not _debug_mode
 			queue_redraw()
-			if _debug_overlay:
-				_debug_overlay.queue_redraw()
+			if debug_overlay:
+				debug_overlay.queue_redraw()
 			print("[QTEDisplay] Debug mode: ", _debug_mode)
 
-var _debug_overlay: Control = null
+var debug_overlay: Control = null
 
 func _ready() -> void:
 	# Anchors se configuran desde el Inspector de la escena, no por código
 
-	# Crear overlay encima del sprite para dibujar las zonas debug
-	_debug_overlay = Control.new()
-	_debug_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_debug_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_debug_overlay.size = get_viewport_rect().size
-	add_child(_debug_overlay)
-	move_child(_debug_overlay, 0)  # Detrás de todo
-	_debug_overlay.draw.connect(_on_debug_overlay_draw)
+	# Crear overlay para dibujar zonas debug
+	debug_overlay = Control.new()
+	debug_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(debug_overlay)
+	move_child(debug_overlay, 0)  # detrás de los hijos visibles
+	debug_overlay.draw.connect(_on_debug_overlay_draw)
 
 	# Asegurar que el botón de confirmar quede al frente
 	if confirm_button:
 		move_child(confirm_button, get_child_count() - 1)
-	# Mantener overlay del tamaño del viewport
-	get_viewport().size_changed.connect(func():
-		_debug_overlay.size = get_viewport_rect().size
-		_debug_overlay.queue_redraw()
-	)
+
 
 	qte_controller.axis_changed.connect(_on_axis_changed)
 	qte_controller.qte_completed.connect(_on_qte_completed)
@@ -134,15 +128,19 @@ func start_qte(player: Object, bullets: int, sprite_texture: Texture2D = null) -
 
 	# Configurar elipse
 	_init_elipse()
-	_elipse.setup(
-		player.elipse_h, player.elipse_k,
-		player.elipse_r, player.elipse_a, player.elipse_b
-	)
+	# La elipse se configura por disparo en _on_qte_completed
+	_elipse.setup(0.0, 0.0, 1.0, 1.0, 1.0)
 
 	show()
 	queue_redraw()
-	if _debug_overlay:
-		_debug_overlay.queue_redraw()
+	if debug_overlay:
+		debug_overlay.queue_redraw()
+	# Resetear el botón Confirm para esta ronda
+	if confirm_button:
+		confirm_button.text = "Confirmar"
+		confirm_button.disabled = false
+		confirm_button.show()
+
 	qte_controller.start(player)
 
 func _update_sprite_rect() -> void:
@@ -182,6 +180,12 @@ func _on_axis_changed(axis: String, value: float) -> void:
 	queue_redraw()
 
 func _on_confirm_pressed() -> void:
+	# Si el QTE ya está resuelto, este botón funciona como "Continuar"
+	if _phase == "done":
+		hide()
+		emit_signal("attack_resolved", _resolved)
+		return
+	# Si aún está en fase activa (vertical/horizontal), confirma el input del QTE
 	qte_controller.register_input()
 
 func _on_qte_completed(point: Vector2) -> void:
@@ -193,27 +197,29 @@ func _on_qte_completed(point: Vector2) -> void:
 	var first = _resolve_shot(point, _player)
 	_resolved.append(first)
 
-	# Configurar la elipse con los stats del jugador.
-	# k = centro Y de la elipse, lo seteamos al Y del primer disparo
-	_elipse.h = 0.0
-	_elipse.k = point.y
-	_elipse.r = _player.elipse_r
-	_elipse.a = _player.elipse_a
-	_elipse.b = _player.elipse_b
-
-	# Disparos siguientes — cada uno usa el anterior como anchor en X (encadenado)
+	# Disparos siguientes — cada uno usa el set de elipse correspondiente a su índice
 	var previous_point = point
 	for i in range(1, _shots_pending):
+		var shot_set: Dictionary = _player.call("get_elipse_set", i)
+		_elipse.h = float(shot_set.get("h", 0.0))
+		_elipse.k = previous_point.y + float(shot_set.get("k", 0.0))
+		_elipse.r = float(shot_set.get("r", 0.05))
+		_elipse.a = float(shot_set.get("a", 1.0))
+		_elipse.b = float(shot_set.get("b", 1.0))
 		var ep: Vector2 = _elipse.next_point_from(previous_point)
 		ep = ep.clamp(Vector2.ZERO, Vector2.ONE)
 		_resolved.append(_resolve_shot(ep, _player))
 		previous_point = ep
 
 	queue_redraw()
+	print("[QTE] shots resolved, esperando boton Continuar...")
 
-	await get_tree().create_timer(1.4).timeout
-	hide()
-	emit_signal("attack_resolved", _resolved)
+	# El QTE ya no se cierra automáticamente — espera al botón "Continuar"
+	# que se muestra como confirm_button con texto "Continuar"
+	if confirm_button:
+		confirm_button.text = "Continuar"
+		confirm_button.disabled = false
+		confirm_button.show()
 
 # ──────────────────────────────────────────────
 #  RESOLUCIÓN: zona + chance de impacto
@@ -241,23 +247,17 @@ func _resolve_shot(point: Vector2, player: Object) -> Dictionary:
 		else:
 			zone = "Piernas"; mult = 0.6
 
-	var chance: float = clampf(
-		player.get("hit_chance_base") - player.get("hit_chance_penalty") * player.get("bullets_spent_total"),
-		0.0, 1.0
-	)
-	var hit_chance = randf() <= chance
-	# El disparo solo cuenta si está dentro de la silueta Y pasa el roll de chance
-	var hit = inside_silhouette and hit_chance
+	# El disparo solo cuenta si está dentro de la silueta
+	var hit = inside_silhouette
 	var damage = _bullet_damage * mult if hit else 0.0
 
 	return {
-		"point":           point,
-		"zone":            zone,
-		"hit":             hit,
-		"chance":          chance,
+		"point":             point,
+		"zone":              zone,
+		"hit":               hit,
 		"inside_silhouette": inside_silhouette,
-		"damage":          damage,
-		"mult":            mult,
+		"damage":            damage,
+		"mult":              mult,
 	}
 
 func _get_zone_mult(_zone_name: String, _hitboxes: Array) -> float:
@@ -289,7 +289,7 @@ func _draw() -> void:
 		draw_string(font, s.position + Vector2(8, 20),
 			"[sprite enemigo]", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.7, 0.7))
 
-	# El debug se dibuja en _debug_overlay (encima del sprite)
+	# El debug se dibuja en debug_overlay (encima del sprite)
 
 	# Borde del sprite
 	draw_rect(s, Color.WHITE, false, 1.5)
@@ -325,7 +325,7 @@ func _draw() -> void:
 	# Chance actual en la esquina
 	if _player and _phase != "done":
 		var chance_now = clampf(
-			_player.hit_chance_base - _player.hit_chance_penalty * _player.bullets_spent_total,
+			0.0,  # hit_chance eliminado
 			0.0, 1.0
 		)
 		draw_string(font, Vector2(s.position.x, s.position.y + s.size.y + 20),
@@ -340,9 +340,7 @@ func _on_debug_overlay_draw() -> void:
 	print("[overlay draw] debug=", _debug_mode, " enemy_data tiene grid_cells=", _current_enemy_data.has("grid_cells"))
 	if not _debug_mode:
 		return
-	# Asegurar que el overlay tenga tamaño correcto antes de dibujar
-	if _debug_overlay.size.x < 1:
-		_debug_overlay.size = get_viewport_rect().size
+
 	var enemy_data: Dictionary = _current_enemy_data
 	if not enemy_data.has("grid_cells") or not enemy_data.has("grid_zones"):
 		return
@@ -352,13 +350,10 @@ func _on_debug_overlay_draw() -> void:
 		return
 
 	# Forzar recálculo del rect del sprite usando la posición real del TextureRect
-	var s: Rect2
-	if sprite_panel and sprite_panel.is_inside_tree() and _debug_overlay.is_inside_tree() and sprite_panel.size.x > 1:
-		s = Rect2(sprite_panel.global_position - _debug_overlay.global_position, sprite_panel.size)
-	elif sprite_node and sprite_node.is_inside_tree() and _debug_overlay.is_inside_tree() and sprite_node.size.x > 1:
-		s = Rect2(sprite_node.global_position - _debug_overlay.global_position, sprite_node.size)
-	else:
-		s = _sprite_rect
+	# Si debug_overlay es hijo del sprite_panel con Full Rect, su área local
+	# coincide con el sprite_panel. Las coordenadas (0,0) → tamaño del overlay
+	# representan toda la silueta.
+	var s = Rect2(Vector2.ZERO, debug_overlay.size)
 	if s.size.x < 1 or s.size.y < 1:
 		return  # rect aún no calculado
 
@@ -380,12 +375,12 @@ func _on_debug_overlay_draw() -> void:
 				var z = zones[zone_idx]
 				# Fill opaco-fuerte para ver bien la zona
 				var fill_col = Color(z["cr"], z["cg"], z["cb"], 0.75)
-				_debug_overlay.draw_rect(cell_rect, fill_col)
+				debug_overlay.draw_rect(cell_rect, fill_col)
 				# Borde blanco grueso
-				_debug_overlay.draw_rect(cell_rect, Color.WHITE, false, 1.5)
+				debug_overlay.draw_rect(cell_rect, Color.WHITE, false, 1.5)
 			else:
 				# Celda vacía: solo borde gris claro para ver la grilla
-				_debug_overlay.draw_rect(cell_rect, Color(1, 1, 1, 0.25), false, 1.0)
+				debug_overlay.draw_rect(cell_rect, Color(1, 1, 1, 0.25), false, 1.0)
 
 	print("[overlay draw] dibujando ", cells.size(), " celdas, ", zones.size(), " zonas, sprite_rect=", s)
 	# Etiquetas de zona — escribir el nombre en la primera celda asignada a cada zona
@@ -402,11 +397,71 @@ func _on_debug_overlay_draw() -> void:
 		var c = i % cols
 		var z = zones[zone_idx]
 		var label_pos = s.position + Vector2(c * cell_w + 2, r * cell_h + 12)
-		_debug_overlay.draw_string(font, label_pos,
+		debug_overlay.draw_string(font, label_pos,
 			"%s x%.1f" % [z["name"], z["mult"]],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE)
 
+	# Dibujar las elipses de cada disparo del jugador activo
+	if _player != null:
+		_draw_elipses_debug(s)
+
 	# Indicador de debug mode
-	_debug_overlay.draw_string(font, Vector2(s.position.x, s.position.y - 10),
+	debug_overlay.draw_string(font, Vector2(s.position.x, s.position.y - 10),
 		"DEBUG MODE - F1 para ocultar",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1.0, 0.8, 0.2))
+
+
+# Dibuja el borde de cada elipse de los sets del jugador, con color distinto por disparo
+func _draw_elipses_debug(sprite_rect: Rect2) -> void:
+	var cad = int(_player.get("cadence"))
+	if cad <= 0:
+		return
+
+	# Colores por disparo (ciclo cromático para distinguir)
+	var colors = [
+		Color(1.0, 0.2, 0.2, 0.9),   # rojo
+		Color(0.2, 1.0, 0.2, 0.9),   # verde
+		Color(0.2, 0.5, 1.0, 0.9),   # azul
+		Color(1.0, 0.9, 0.2, 0.9),   # amarillo
+		Color(1.0, 0.4, 1.0, 0.9),   # magenta
+		Color(0.4, 1.0, 1.0, 0.9),   # cian
+	]
+
+	for i in cad:
+		var set_game: Dictionary = _player.call("get_elipse_set", i)
+		var col: Color = colors[i % colors.size()]
+
+		# Las coords del set están en espacio del juego (0..1)
+		# h, k: centro normalizado; r: radio; a, b: factores de escala
+		var h = float(set_game.get("h", 0.5))
+		var k = float(set_game.get("k", 0.5))
+		var r = float(set_game.get("r", 0.05))
+		var a = float(set_game.get("a", 1.0))
+		var b = float(set_game.get("b", 1.0))
+
+		# Convertir a píxeles del sprite_rect
+		var center_px = sprite_rect.position + Vector2(h * sprite_rect.size.x, k * sprite_rect.size.y)
+		var rx_px = r * sqrt(a) * sprite_rect.size.x
+		var ry_px = r * sqrt(b) * sprite_rect.size.y
+
+		# Dibujar elipse como polyline (Godot no tiene draw_ellipse nativo)
+		var points = PackedVector2Array()
+		var segments = 48
+		for seg in segments + 1:
+			var angle = 2.0 * PI * float(seg) / float(segments)
+			points.append(center_px + Vector2(cos(angle) * rx_px, sin(angle) * ry_px))
+		debug_overlay.draw_polyline(points, col, 2.0, true)
+
+		# Marcar el centro con una cruz pequeña
+		debug_overlay.draw_line(
+			center_px + Vector2(-4, 0), center_px + Vector2(4, 0),
+			col, 1.5)
+		debug_overlay.draw_line(
+			center_px + Vector2(0, -4), center_px + Vector2(0, 4),
+			col, 1.5)
+
+		# Etiqueta con el número de disparo cerca del centro
+		var font = ThemeDB.fallback_font
+		debug_overlay.draw_string(font, center_px + Vector2(6, -6),
+			"#%d" % (i + 1),
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)

@@ -1,52 +1,25 @@
 # GameData.gd — Autoload Singleton
-# Añadilo en Project > Project Settings > Autoload como "GameData"
 extends Node
 
 var player_data: Array[Dictionary] = []
 var enemy_data: Array[Dictionary] = []
-var _initialized = false
+var _initialized := false
+
+# Velocidad global del juego (multiplica el delta en CombatManager)
+var game_speed: float = 1.0
 
 func ensure_defaults() -> void:
-	if _initialized:
-		if player_data.size() > 0 and not player_data[0].has("hit_chance_base"):
-			_initialized = false
 	if _initialized:
 		return
 	_initialized = true
 
+	# ── DEFAULTS DE JUGADORES ──
+	# Cada jugador: stats base + cadence + ammo + qte + array de elipse_sets (uno por bala)
 	player_data = [
-		{
-			"name": "Scout",
-			"max_hp": 80.0, "speed": 1.4, "damage": 15.0, "atb_max": 100.0,
-			"cadence": 4, "max_ammo": 16,
-			"hit_chance_base": 0.80, "hit_chance_penalty": 0.02,
-			"qte_speed_x": 0.45, "qte_speed_y": 0.35, "left_handed": false,
-			"elipse_h": 0.0, "elipse_k": 0.05, "elipse_r": 0.06, "elipse_a": 1.2, "elipse_b": 0.8,
-		},
-		{
-			"name": "Sniper",
-			"max_hp": 70.0, "speed": 0.8, "damage": 55.0, "atb_max": 100.0,
-			"cadence": 1, "max_ammo": 5,
-			"hit_chance_base": 0.90, "hit_chance_penalty": 0.01,
-			"qte_speed_x": 0.3, "qte_speed_y": 0.2, "left_handed": false,
-			"elipse_h": 0.0, "elipse_k": 0.02, "elipse_r": 0.03, "elipse_a": 1.0, "elipse_b": 1.0,
-		},
-		{
-			"name": "Gunner",
-			"max_hp": 120.0, "speed": 1.0, "damage": 20.0, "atb_max": 100.0,
-			"cadence": 6, "max_ammo": 30,
-			"hit_chance_base": 0.75, "hit_chance_penalty": 0.03,
-			"qte_speed_x": 0.55, "qte_speed_y": 0.45, "left_handed": false,
-			"elipse_h": 0.0, "elipse_k": 0.08, "elipse_r": 0.10, "elipse_a": 1.5, "elipse_b": 0.7,
-		},
-		{
-			"name": "Medic",
-			"max_hp": 90.0, "speed": 1.1, "damage": 10.0, "atb_max": 100.0,
-			"cadence": 2, "max_ammo": 10,
-			"hit_chance_base": 0.80, "hit_chance_penalty": 0.02,
-			"qte_speed_x": 0.45, "qte_speed_y": 0.35, "left_handed": false,
-			"elipse_h": 0.0, "elipse_k": 0.05, "elipse_r": 0.06, "elipse_a": 1.2, "elipse_b": 0.8,
-		},
+		_make_player("Scout",  80.0, 1.4, 15.0, 100.0, 4, 16, 0.45, 0.35, false),
+		_make_player("Sniper", 70.0, 0.8, 55.0, 100.0, 1, 5,  0.30, 0.20, false),
+		_make_player("Gunner", 120.0, 1.0, 20.0, 100.0, 6, 30, 0.55, 0.45, false),
+		_make_player("Medic",  90.0, 1.1, 10.0, 100.0, 2, 10, 0.45, 0.35, false),
 	]
 
 	enemy_data = [
@@ -59,28 +32,50 @@ func ensure_defaults() -> void:
 	# Cargar zonas guardadas (si existen) sobre los defaults
 	load_enemy_zones()
 
+func _make_player(name: String, hp: float, spd: float, dmg: float, atb: float,
+		cad: int, ammo: int, qx: float, qy: float, left: bool) -> Dictionary:
+	var sets = []
+	# Genera `cad` sets de elipse con dispersión creciente.
+	# Coordenadas en formato Desmos (-1..+1 para x/y, r en unidades Desmos).
+	for i in cad:
+		sets.append({
+			"h": 0.0,                     # centro X (Desmos)
+			"k": 0.0,                     # centro Y (Desmos)
+			"r": 0.10 + i * 0.04,         # radio en unidades Desmos
+			"a": 1.0 + i * 0.15,          # escala X
+			"b": 1.0,                     # escala Y
+		})
+	return {
+		"name": name,
+		"max_hp": hp, "speed": spd, "damage": dmg, "atb_max": atb,
+		"cadence": cad, "max_ammo": ammo,
+		"qte_speed_x": qx, "qte_speed_y": qy,
+		"left_handed": left,
+		"elipse_sets": sets,
+	}
+
 func build_players() -> Array:
 	var PlayerCharacterScript = load("res://Scripts/playercharacter.gd")
 	var result: Array = []
 	for d in player_data:
 		var p = PlayerCharacterScript.new()
-		p.character_name      = d["name"]
-		p.max_hp              = d["max_hp"]
-		p.speed               = d["speed"]
-		p.damage              = d["damage"]
-		p.atb_max             = d["atb_max"]
-		p.cadence             = d["cadence"]
-		p.max_ammo            = d["max_ammo"]
-		p.hit_chance_base     = d.get("hit_chance_base", 0.80)
-		p.hit_chance_penalty  = d.get("hit_chance_penalty", 0.02)
-		p.qte_speed_x         = d.get("qte_speed_x", 0.4)
-		p.qte_speed_y         = d.get("qte_speed_y", 0.3)
-		p.left_handed         = d.get("left_handed", false)
-		p.elipse_h            = d.get("elipse_h", 0.0)
-		p.elipse_k            = d.get("elipse_k", 0.05)
-		p.elipse_r            = d.get("elipse_r", 0.08)
-		p.elipse_a            = d.get("elipse_a", 1.2)
-		p.elipse_b            = d.get("elipse_b", 0.8)
+		p.character_name = d["name"]
+		p.max_hp         = d["max_hp"]
+		p.speed          = d["speed"]
+		p.damage         = d["damage"]
+		p.atb_max        = d["atb_max"]
+		p.cadence        = d["cadence"]
+		p.max_ammo       = d["max_ammo"]
+		p.qte_speed_x    = d.get("qte_speed_x", 0.4)
+		p.qte_speed_y    = d.get("qte_speed_y", 0.3)
+		p.left_handed    = d.get("left_handed", false)
+		# Sets de elipse: copiar profundo para que cada PlayerCharacter tenga los suyos
+		var sets_copy = []
+		for s in d.get("elipse_sets", []):
+			sets_copy.append(s.duplicate(true))
+		p.elipse_sets = sets_copy
+		p.ensure_elipse_sets()
+		p.current_ammo = p.max_ammo
 		result.append(p)
 	return result
 
@@ -103,13 +98,10 @@ func build_enemies() -> Array:
 const SAVE_PATH = "user://hitbox_zones.save"
 
 func save_enemy_zones() -> void:
-	# Solo guardamos las zonas/hitboxes de cada enemigo, no los stats
 	var payload = {}
 	for i in enemy_data.size():
 		var d = enemy_data[i]
-		var entry = {
-			"name": d.get("name", ""),
-		}
+		var entry = { "name": d.get("name", "") }
 		if d.has("grid_cells"):
 			entry["grid_cells"] = d["grid_cells"]
 		if d.has("grid_zones"):
@@ -122,7 +114,6 @@ func save_enemy_zones() -> void:
 		return
 	f.store_string(JSON.stringify(payload))
 	f.close()
-	print("[GameData] Hitboxes guardadas en ", SAVE_PATH)
 
 func load_enemy_zones() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -135,10 +126,9 @@ func load_enemy_zones() -> void:
 
 	var parsed = JSON.parse_string(text)
 	if typeof(parsed) != TYPE_DICTIONARY:
-		push_error("Savefile corrupto o formato inválido")
+		push_error("Savefile corrupto")
 		return
 
-	# Mergear los datos guardados con los enemigos actuales (matchear por nombre)
 	for i in enemy_data.size():
 		var name = enemy_data[i].get("name", "")
 		if parsed.has(name):
@@ -147,4 +137,3 @@ func load_enemy_zones() -> void:
 				enemy_data[i]["grid_cells"] = saved["grid_cells"]
 			if saved.has("grid_zones"):
 				enemy_data[i]["grid_zones"] = saved["grid_zones"]
-	print("[GameData] Hitboxes cargadas desde ", SAVE_PATH)

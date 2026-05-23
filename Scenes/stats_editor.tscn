@@ -2,17 +2,17 @@
 
 [ext_resource type="Script" uid="uid://dgsmwoea4h7si" path="res://Scripts/stats_editor.gd" id="1_g62nb"]
 
-[node name="StatsEditor" type="Control" unique_id=1366687811 node_paths=PackedStringArray("tab_container", "btn_apply", "btn_cancel", "btn_reset", "status_label")]
+[node name="StatsEditor" type="Control" unique_id=1366687811 node_paths=PackedStringArray("btn_close", "btn_apply", "btn_reset", "tab_container")]
+custom_minimum_size = Vector2(300, 300)
 layout_mode = 3
 anchors_preset = 0
 size_flags_horizontal = 4
 size_flags_vertical = 4
 script = ExtResource("1_g62nb")
-tab_container = NodePath("TabContainer")
+btn_close = NodePath("HBoxContainer/Cancel")
 btn_apply = NodePath("HBoxContainer/Apply")
-btn_cancel = NodePath("HBoxContainer/Cancel")
 btn_reset = NodePath("HBoxContainer/Reset")
-status_label = NodePath("HBoxContainer/Status")
+tab_container = NodePath("TabContainer")
 
 [node name="TabContainer" type="TabContainer" parent="." unique_id=1402719805]
 unique_name_in_owner = true
@@ -26,10 +26,14 @@ tab_alignment = 1
 all_tabs_in_front = true
 
 [node name="HBoxContainer" type="VBoxContainer" parent="." unique_id=998652639]
-layout_mode = 0
-offset_top = 640.0
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -128.0
 offset_right = 224.0
-offset_bottom = 768.0
+grow_vertical = 0
 alignment = 1
 
 [node name="Apply" type="Button" parent="HBoxContainer" unique_id=1415169406]

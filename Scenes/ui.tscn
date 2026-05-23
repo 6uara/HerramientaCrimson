@@ -20,7 +20,7 @@ bullet_count_label = NodePath("VBoxContainer/CombatArea/VBoxContainer/BulletCoun
 attack_button = NodePath("VBoxContainer/CombatArea/VBoxContainer/Buttons/Attack")
 reload_button = NodePath("VBoxContainer/CombatArea/VBoxContainer/Buttons/Reload")
 log_label = NodePath("Log")
-pause_button = NodePath("VBoxContainer/CombatArea/VBoxContainer/Pause")
+pause_button = NodePath("VBoxContainer/Pause")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1358999328]
 texture_filter = 1
@@ -33,6 +33,11 @@ offset_right = 123.0
 offset_bottom = 114.5
 grow_vertical = 2
 alignment = 1
+
+[node name="Pause" type="Button" parent="VBoxContainer" unique_id=1600358588]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Pause"
 
 [node name="EnemyArea" type="VBoxContainer" parent="VBoxContainer" unique_id=540072500]
 layout_mode = 2
@@ -97,11 +102,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Reload"
 expand_icon = true
-
-[node name="Pause" type="Button" parent="VBoxContainer/CombatArea/VBoxContainer" unique_id=1600358588]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Pause"
 
 [node name="Log" type="RichTextLabel" parent="." unique_id=478631093]
 unique_name_in_owner = true

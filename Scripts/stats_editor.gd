@@ -1,212 +1,332 @@
 # StatsEditor.gd
+# Editor en runtime de TODOS los stats de jugadores y enemigos.
+# UI 100% generada por código.
+# process_mode: Always
 extends Control
 
-# ──────────────────────────────────────────────
-#  Definición de campos por tipo de personaje
-# ──────────────────────────────────────────────
-const PLAYER_FIELDS = [
-	{ "key": "max_hp",   "label": "HP Máx",      "min": 1.0,  "max": 9999.0, "step": 1.0,  "is_int": false },
-	{ "key": "speed",    "label": "Velocidad",    "min": 0.1,  "max": 10.0,   "step": 0.05, "is_int": false },
-	{ "key": "damage",   "label": "Daño/Bala",    "min": 1.0,  "max": 9999.0, "step": 1.0,  "is_int": false },
-	{ "key": "atb_max",  "label": "ATB Máx",      "min": 10.0, "max": 500.0,  "step": 5.0,  "is_int": false },
-	{ "key": "cadence",           "label": "Cadencia",        "min": 1.0,  "max": 20.0,  "step": 1.0,   "is_int": true  },
-	{ "key": "max_ammo",          "label": "Munición Máx",    "min": 1.0,  "max": 999.0, "step": 1.0,   "is_int": true  },
-	{ "key": "hit_chance_base",   "label": "Chance base (%)", "min": 0.0,  "max": 100.0, "step": 1.0,   "is_int": false },
-	{ "key": "hit_chance_penalty","label": "Penalidad/bala (%)", "min": 0.0, "max": 100.0, "step": 1.0, "is_int": false },
+signal close_requested
+signal apply_and_restart
+signal resume_combat
+
+@export var btn_close: Button
+@export var btn_apply: Button
+@export var btn_reset: Button
+@export var tab_container: TabContainer
+
+const STAT_FIELDS_PLAYER = [
+	{ "key": "max_hp",       "label": "HP máximo",       "min": 1,    "max": 9999, "step": 1.0 },
+	{ "key": "speed",        "label": "Velocidad ATB",   "min": 0.1,  "max": 10.0, "step": 0.05 },
+	{ "key": "damage",       "label": "Daño base",       "min": 0,    "max": 999,  "step": 0.5 },
+	{ "key": "atb_max",      "label": "ATB máximo",      "min": 10,   "max": 999,  "step": 1.0 },
+	{ "key": "cadence",      "label": "Cadencia",        "min": 1,    "max": 20,   "step": 1.0 },
+	{ "key": "max_ammo",     "label": "Munición máx",    "min": 1,    "max": 999,  "step": 1.0 },
+	{ "key": "qte_speed_x",  "label": "QTE velocidad X", "min": 0.05, "max": 5.0,  "step": 0.05 },
+	{ "key": "qte_speed_y",  "label": "QTE velocidad Y", "min": 0.05, "max": 5.0,  "step": 0.05 },
 ]
 
-const ENEMY_FIELDS = [
-	{ "key": "max_hp",  "label": "HP Máx",    "min": 1.0,  "max": 9999.0, "step": 1.0,  "is_int": false },
-	{ "key": "speed",   "label": "Velocidad", "min": 0.1,  "max": 10.0,   "step": 0.05, "is_int": false },
-	{ "key": "damage",  "label": "Daño",      "min": 1.0,  "max": 9999.0, "step": 1.0,  "is_int": false },
-	{ "key": "atb_max", "label": "ATB Máx",   "min": 10.0, "max": 500.0,  "step": 5.0,  "is_int": false },
+const STAT_FIELDS_ENEMY = [
+	{ "key": "max_hp",   "label": "HP máximo",     "min": 1,    "max": 9999, "step": 1.0 },
+	{ "key": "speed",    "label": "Velocidad ATB", "min": 0.1,  "max": 10.0, "step": 0.05 },
+	{ "key": "damage",   "label": "Daño",          "min": 0,    "max": 999,  "step": 0.5 },
+	{ "key": "atb_max",  "label": "ATB máximo",    "min": 10,   "max": 999,  "step": 1.0 },
 ]
 
-# ──────────────────────────────────────────────
-#  Señales
-# ──────────────────────────────────────────────
-signal apply_and_restart   
-signal resume_combat        
+# Valores Desmos: x/y van -1..+1 (+y = arriba/cabeza, -y = abajo/pies)
+# r va 0..2 (radio en unidades Desmos, 2 unidades = ancho/alto completo de la silueta)
+# a/b son escalas adimensionales
+const ELIPSE_FIELDS = [
+	{ "key": "h", "label": "h (centro X, Desmos)",  "min": -1.0, "max": 1.0, "step": 0.01 },
+	{ "key": "k", "label": "k (centro Y, Desmos)",  "min": -1.0, "max": 1.0, "step": 0.01 },
+	{ "key": "r", "label": "r (radio, Desmos)",     "min": 0.0,  "max": 2.0, "step": 0.01 },
+	{ "key": "a", "label": "a (escala X)",          "min": 0.1,  "max": 5.0, "step": 0.05 },
+	{ "key": "b", "label": "b (escala Y)",          "min": 0.1,  "max": 5.0, "step": 0.05 },
+]
 
-# ──────────────────────────────────────────────
-#  Referencias a nodos 
-# ──────────────────────────────────────────────
-@export var tab_container: TabContainer 
-@export var btn_apply: Button       
-@export var btn_cancel: Button      
-@export var btn_reset: Button         
-@export var status_label: Label      
+# Caché: card[i] = { name_edit, fields: { key: SpinBox/CheckBox }, left_handed_check, sprite_path_edit, elipse_spins: Array }
+var _player_cards: Array = []
+var _enemy_cards: Array = []
 
-var _widgets: Dictionary = { "players": [], "enemies": [] }
-
-# ──────────────────────────────────────────────
-#  INICIALIZACIÓN
-# ──────────────────────────────────────────────
 func _ready() -> void:
-	GameData.ensure_defaults()
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	btn_close.pressed.connect(func():
+		emit_signal("close_requested")
+		emit_signal("resume_combat")
+	)
+	btn_apply.pressed.connect(func():
+		_apply_changes()
+		emit_signal("apply_and_restart")
+	)
+	btn_reset.pressed.connect(_reset_to_defaults)
+	hide()
+
+func refresh() -> void:
 	_build_tabs()
 
-	btn_apply.pressed.connect(_on_apply)
-	btn_cancel.pressed.connect(_on_cancel)
-	btn_reset.pressed.connect(_on_reset_defaults)
-
-	status_label.text = ""
-
 # ──────────────────────────────────────────────
-#  CONSTRUCCIÓN DINÁMICA DE TABS Y CAMPOS
+#  CONSTRUCCIÓN DE LA UI
 # ──────────────────────────────────────────────
 func _build_tabs() -> void:
+	# Limpiar tabs previos
 	for child in tab_container.get_children():
 		tab_container.remove_child(child)
-		child.free()
+		child.queue_free()
+	_player_cards.clear()
+	_enemy_cards.clear()
 
-	_widgets["players"].clear()
-	_widgets["enemies"].clear()
+	# Tab Jugadores
+	var players_scroll = ScrollContainer.new()
+	players_scroll.name = "Jugadores"
+	var players_vbox = VBoxContainer.new()
+	players_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	players_vbox.add_theme_constant_override("separation", 12)
+	players_scroll.add_child(players_vbox)
+	tab_container.add_child(players_scroll)
 
-	# Tab de Jugadores
-	var players_tab = _build_group_tab(
-		GameData.player_data,
-		PLAYER_FIELDS,
-		_widgets["players"],
-		true
-	)
-	tab_container.add_child(players_tab)
-	players_tab.name = "Jugadores"
+	for i in GameData.player_data.size():
+		var card = _build_player_card(GameData.player_data[i])
+		players_vbox.add_child(card["root"])
+		_player_cards.append(card)
 
-	# Tab de Enemigos
-	var enemies_tab = _build_group_tab(
-		GameData.enemy_data,
-		ENEMY_FIELDS,
-		_widgets["enemies"],
-		false
-	)
-	tab_container.add_child(enemies_tab)
-	enemies_tab.name = "Enemigos"
+	# Tab Enemigos
+	var enemies_scroll = ScrollContainer.new()
+	enemies_scroll.name = "Enemigos"
+	var enemies_vbox = VBoxContainer.new()
+	enemies_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	enemies_vbox.add_theme_constant_override("separation", 12)
+	enemies_scroll.add_child(enemies_vbox)
+	tab_container.add_child(enemies_scroll)
 
-func _build_group_tab(
-		data_array: Array,
-		fields: Array,
-		widget_array: Array,
-		is_player: bool
-) -> ScrollContainer:
+	for i in GameData.enemy_data.size():
+		var card = _build_enemy_card(GameData.enemy_data[i])
+		enemies_vbox.add_child(card["root"])
+		_enemy_cards.append(card)
 
-	var scroll = ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+func _build_player_card(d: Dictionary) -> Dictionary:
+	var panel = PanelContainer.new()
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	panel.add_child(vbox)
 
-	var hbox = HBoxContainer.new()
-	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hbox.add_theme_constant_override("separation", 16)
-	scroll.add_child(hbox)
+	# Nombre
+	var name_row = HBoxContainer.new()
+	var name_lbl = Label.new()
+	name_lbl.text = "Nombre"
+	name_lbl.custom_minimum_size.x = 130
+	name_row.add_child(name_lbl)
+	var name_edit = LineEdit.new()
+	name_edit.text = d.get("name", "")
+	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_row.add_child(name_edit)
+	vbox.add_child(name_row)
 
-	for i in data_array.size():
-		var char_data: Dictionary = data_array[i]
-		var card_data: Dictionary = { "index": i, "is_player": is_player, "fields": {} }
+	# Stats numéricos
+	var fields = {}
+	for f in STAT_FIELDS_PLAYER:
+		var row = HBoxContainer.new()
+		var lbl = Label.new()
+		lbl.text = f["label"]
+		lbl.custom_minimum_size.x = 130
+		row.add_child(lbl)
+		var spin = SpinBox.new()
+		spin.min_value = f["min"]
+		spin.max_value = f["max"]
+		spin.step = f["step"]
+		spin.value = float(d.get(f["key"], 0))
+		spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(spin)
+		vbox.add_child(row)
+		fields[f["key"]] = spin
 
-		# Panel tarjeta
-		var panel = PanelContainer.new()
-		panel.custom_minimum_size = Vector2(200, 0)
-		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hbox.add_child(panel)
+	# Left-handed checkbox
+	var lh_row = HBoxContainer.new()
+	var lh_lbl = Label.new()
+	lh_lbl.text = "Zurdo"
+	lh_lbl.custom_minimum_size.x = 130
+	lh_row.add_child(lh_lbl)
+	var lh_check = CheckBox.new()
+	lh_check.button_pressed = bool(d.get("left_handed", false))
+	lh_row.add_child(lh_check)
+	vbox.add_child(lh_row)
 
-		var vbox = VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", 6)
-		panel.add_child(vbox)
+	# Separador
+	vbox.add_child(HSeparator.new())
 
-		# Header con nombre editable
-		var header = Label.new()
-		header.text = "── %s ──" % char_data["name"]
-		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		header.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-		vbox.add_child(header)
+	# Sección elipse_sets
+	var sets_header = Label.new()
+	sets_header.text = "Sets de elipse (uno por disparo)"
+	sets_header.add_theme_font_size_override("font_size", 13)
+	sets_header.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
+	vbox.add_child(sets_header)
 
-		var name_hbox = HBoxContainer.new()
-		var name_lbl = Label.new()
-		name_lbl.text = "Nombre"
-		name_lbl.custom_minimum_size.x = 90
-		name_hbox.add_child(name_lbl)
-		var name_edit = LineEdit.new()
-		name_edit.text = char_data["name"]
-		name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name_hbox.add_child(name_edit)
-		vbox.add_child(name_hbox)
-		card_data["name_edit"] = name_edit
+	var sets_container = VBoxContainer.new()
+	sets_container.add_theme_constant_override("separation", 6)
+	vbox.add_child(sets_container)
 
-		# Separador
-		vbox.add_child(HSeparator.new())
+	var elipse_spins = []  # Array de Dictionaries (uno por set), cada uno tiene los SpinBox
+	_build_elipse_sets_ui(sets_container, d.get("elipse_sets", []), elipse_spins)
 
-		# Campos numéricos
-		for field in fields:
+	return {
+		"root": panel,
+		"name_edit": name_edit,
+		"fields": fields,
+		"left_handed_check": lh_check,
+		"elipse_spins": elipse_spins,
+		"sets_container": sets_container,
+		"cadence_spin": fields["cadence"],
+	}
+
+func _build_elipse_sets_ui(container: VBoxContainer, sets: Array, out_spins: Array) -> void:
+	# Limpiar contenedor
+	for c in container.get_children():
+		container.remove_child(c)
+		c.queue_free()
+	out_spins.clear()
+
+	for i in sets.size():
+		var set_data = sets[i]
+		var set_panel = PanelContainer.new()
+		var set_vbox = VBoxContainer.new()
+		set_panel.add_child(set_vbox)
+
+		var title = Label.new()
+		title.text = "Disparo #%d" % (i + 1)
+		title.add_theme_font_size_override("font_size", 11)
+		set_vbox.add_child(title)
+
+		var spins_dict = {}
+		for f in ELIPSE_FIELDS:
 			var row = HBoxContainer.new()
 			var lbl = Label.new()
-			lbl.text = field["label"]
-			lbl.custom_minimum_size.x = 90
+			lbl.text = f["label"]
+			lbl.custom_minimum_size.x = 120
+			lbl.add_theme_font_size_override("font_size", 10)
 			row.add_child(lbl)
-
 			var spin = SpinBox.new()
-			spin.min_value = field["min"]
-			spin.max_value = field["max"]
-			spin.step      = field["step"]
-			# Usar .get() con fallback para evitar crash si la key no existe en el dict
-			var raw_val = char_data.get(field["key"], field["min"])
-			if field["key"] in ["hit_chance_base", "hit_chance_penalty"]:
-				# hit_chance se guarda en 0-1 pero el editor lo muestra en 0-100
-				spin.value = raw_val * 100.0
-			else:
-				spin.value = raw_val
+			spin.min_value = f["min"]
+			spin.max_value = f["max"]
+			spin.step = f["step"]
+			spin.value = float(set_data.get(f["key"], 0))
 			spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			if field["is_int"]:
-				spin.step = 1.0
 			row.add_child(spin)
+			set_vbox.add_child(row)
+			spins_dict[f["key"]] = spin
 
-			card_data["fields"][field["key"]] = spin
-			vbox.add_child(row)
+		out_spins.append(spins_dict)
+		container.add_child(set_panel)
 
-		widget_array.append(card_data)
+func _build_enemy_card(d: Dictionary) -> Dictionary:
+	var panel = PanelContainer.new()
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	panel.add_child(vbox)
 
-	return scroll
+	# Nombre
+	var name_row = HBoxContainer.new()
+	var name_lbl = Label.new()
+	name_lbl.text = "Nombre"
+	name_lbl.custom_minimum_size.x = 130
+	name_row.add_child(name_lbl)
+	var name_edit = LineEdit.new()
+	name_edit.text = d.get("name", "")
+	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_row.add_child(name_edit)
+	vbox.add_child(name_row)
+
+	# Sprite path
+	var path_row = HBoxContainer.new()
+	var path_lbl = Label.new()
+	path_lbl.text = "Sprite"
+	path_lbl.custom_minimum_size.x = 130
+	path_row.add_child(path_lbl)
+	var path_edit = LineEdit.new()
+	path_edit.text = d.get("sprite_path", "")
+	path_edit.placeholder_text = "res://Sprites/enemy.png"
+	path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	path_row.add_child(path_edit)
+	vbox.add_child(path_row)
+
+	# Stats numéricos
+	var fields = {}
+	for f in STAT_FIELDS_ENEMY:
+		var row = HBoxContainer.new()
+		var lbl = Label.new()
+		lbl.text = f["label"]
+		lbl.custom_minimum_size.x = 130
+		row.add_child(lbl)
+		var spin = SpinBox.new()
+		spin.min_value = f["min"]
+		spin.max_value = f["max"]
+		spin.step = f["step"]
+		spin.value = float(d.get(f["key"], 0))
+		spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(spin)
+		vbox.add_child(row)
+		fields[f["key"]] = spin
+
+	return {
+		"root": panel,
+		"name_edit": name_edit,
+		"sprite_path_edit": path_edit,
+		"fields": fields,
+	}
 
 # ──────────────────────────────────────────────
-#  ACCIONES DE BOTONES
+#  APLICAR Y RESET
 # ──────────────────────────────────────────────
-func _on_apply() -> void:
-	_read_widgets_into_gamedata()
-	status_label.text = "✓ Valores guardados. Reiniciando combate..."
-	status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.5))
-	# Pequeña pausa visual antes de emitir
-	await get_tree().create_timer(0.4).timeout
-	emit_signal("apply_and_restart")
+func _apply_changes() -> void:
+	# Jugadores
+	for i in _player_cards.size():
+		var card = _player_cards[i]
+		var d = GameData.player_data[i]
+		d["name"] = card["name_edit"].text
+		for key in card["fields"]:
+			var val = card["fields"][key].value
+			if key in ["cadence", "max_ammo", "atb_max"]:
+				d[key] = int(val)
+			else:
+				d[key] = val
+		d["left_handed"] = card["left_handed_check"].button_pressed
 
-func _on_cancel() -> void:
-	emit_signal("resume_combat")
+		# Reconstruir elipse_sets si la cadencia cambió
+		var new_cad = int(d["cadence"])
+		var current_sets = d.get("elipse_sets", [])
+		if current_sets.size() != new_cad:
+			# Ajustar tamaño manteniendo valores existentes
+			while current_sets.size() < new_cad:
+				current_sets.append({
+					"h": 0.0, "k": 0.0,
+					"r": 0.10 + current_sets.size() * 0.04,
+					"a": 1.0, "b": 1.0,
+				})
+			while current_sets.size() > new_cad:
+				current_sets.pop_back()
+			d["elipse_sets"] = current_sets
 
-func _on_reset_defaults() -> void:
-	# Fuerza reinicializar los defaults y reconstruye los widgets
+		# Aplicar valores editados de cada set
+		for j in card["elipse_spins"].size():
+			if j >= d["elipse_sets"].size():
+				break
+			var spins = card["elipse_spins"][j]
+			for key in spins:
+				d["elipse_sets"][j][key] = spins[key].value
+
+	# Enemigos
+	for i in _enemy_cards.size():
+		var card = _enemy_cards[i]
+		var d = GameData.enemy_data[i]
+		d["name"] = card["name_edit"].text
+		d["sprite_path"] = card["sprite_path_edit"].text.strip_edges()
+		for key in card["fields"]:
+			var val = card["fields"][key].value
+			if key in ["atb_max"]:
+				d[key] = int(val)
+			else:
+				d[key] = val
+
+	# Re-render para reflejar si cambió cadencia (nuevos sets agregados/quitados)
+	refresh()
+
+func _reset_to_defaults() -> void:
 	GameData._initialized = false
 	GameData.ensure_defaults()
-	_build_tabs()
-	status_label.text = "Valores restaurados a los defaults."
-	status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.2))
-
-# ──────────────────────────────────────────────
-#  LEER WIDGETS Y ESCRIBIR EN GameData
-# ──────────────────────────────────────────────
-func _read_widgets_into_gamedata() -> void:
-	for card_data in _widgets["players"]:
-		var i: int = card_data["index"]
-		GameData.player_data[i]["name"] = card_data["name_edit"].text
-		for key in card_data["fields"]:
-			var spin: SpinBox = card_data["fields"][key]
-			if key in ["cadence", "max_ammo"]:
-				GameData.player_data[i][key] = int(spin.value)
-			elif key in ["hit_chance_base", "hit_chance_penalty"]:
-				# Editor muestra 0-100, GameData guarda 0.0-1.0
-				GameData.player_data[i][key] = spin.value / 100.0
-			else:
-				GameData.player_data[i][key] = spin.value
-
-	for card_data in _widgets["enemies"]:
-		var i: int = card_data["index"]
-		GameData.enemy_data[i]["name"] = card_data["name_edit"].text
-		for key in card_data["fields"]:
-			var spin: SpinBox = card_data["fields"][key]
-			GameData.enemy_data[i][key] = spin.value
+	refresh()

@@ -49,3 +49,33 @@ func next_point_from(previous: Vector2) -> Vector2:
 	var n: float = previous.x + rx * w * cos(q)
 	var m: float = k + ry * w * sin(q)
 	return Vector2(n, m)
+
+# ──────────────────────────────────────────────
+#  CONVERSIÓN DESMOS ↔ JUEGO
+# ──────────────────────────────────────────────
+# El GD edita los sets de elipse en coordenadas Desmos (-1 a +1, con +Y arriba).
+# El juego usa coordenadas normalizadas (0 a 1, con +Y abajo).
+#
+# Mapeos:
+#   x:   -1..+1   →   0..1     →  x_game = (x_desmos + 1) / 2
+#   y:   -1..+1   →   1..0     →  y_game = (1 - y_desmos) / 2  (Y invertido)
+#   r:    0..2    →   0..1     →  r_game = r_desmos / 2        (rango es 2 unidades)
+#   a/b:  factores adimensionales, no se convierten
+
+static func desmos_to_game(desmos_set: Dictionary) -> Dictionary:
+	return {
+		"h": (float(desmos_set.get("h", 0.0)) + 1.0) / 2.0,
+		"k": (1.0 - float(desmos_set.get("k", 0.0))) / 2.0,
+		"r":  float(desmos_set.get("r", 0.1)) / 2.0,
+		"a":  float(desmos_set.get("a", 1.0)),
+		"b":  float(desmos_set.get("b", 1.0)),
+	}
+
+static func game_to_desmos(game_set: Dictionary) -> Dictionary:
+	return {
+		"h": float(game_set.get("h", 0.5)) * 2.0 - 1.0,
+		"k": 1.0 - float(game_set.get("k", 0.5)) * 2.0,
+		"r": float(game_set.get("r", 0.05)) * 2.0,
+		"a": float(game_set.get("a", 1.0)),
+		"b": float(game_set.get("b", 1.0)),
+	}

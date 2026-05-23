@@ -48,10 +48,10 @@ func _ready() -> void:
 
 # Llamado desde CombatSetup al (re)iniciar el combate
 func reset() -> void:
-	if not combat_manager.player_turn_started.is_connected(_on_player_turn_started):
-		combat_manager.player_turn_started.connect(_on_player_turn_started)
-	if not combat_manager.enemy_turn_resolved.is_connected(_on_enemy_turn_resolved):
-		combat_manager.enemy_turn_resolved.connect(_on_enemy_turn_resolved)
+	if not combat_manager.action_started.is_connected(_on_action_started):
+		combat_manager.action_started.connect(_on_action_started)
+	if not combat_manager.action_resolved.is_connected(_on_action_resolved):
+		combat_manager.action_resolved.connect(_on_action_resolved)
 	if not combat_manager.character_died.is_connected(_on_character_died):
 		combat_manager.character_died.connect(_on_character_died)
 	if not combat_manager.combat_ended.is_connected(_on_combat_ended):
@@ -106,11 +106,16 @@ func record_enemy_damage(enemy_name: String, damage: float) -> void:
 # ──────────────────────────────────────────────
 #  SEÑALES DEL COMBAT MANAGER
 # ──────────────────────────────────────────────
-func _on_player_turn_started(_player_char) -> void:
-	turn_number += 1
+func _on_action_started(action_data: Dictionary) -> void:
+	if action_data["kind"] == "player_attack":
+		turn_number += 1
 
-func _on_enemy_turn_resolved(_enemy, target, dmg: float) -> void:
+func _on_action_resolved(action_data: Dictionary) -> void:
+	if action_data["kind"] != "enemy_attack":
+		return
 	turn_number += 1
+	var target = action_data.get("target")
+	var dmg = action_data.get("damage", 0.0)
 	if not player_stats.has(target.get("character_name")):
 		return
 	player_stats[target.get("character_name")]["damage_taken"] += dmg

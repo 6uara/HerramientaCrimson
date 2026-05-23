@@ -9,34 +9,98 @@
 [ext_resource type="Script" uid="uid://cx6rs1fffn1le" path="res://Scripts/combat_tracker.gd" id="7_6yy46"]
 [ext_resource type="PackedScene" uid="uid://kvvxeavxapw" path="res://Scenes/hitbox_editor_.tscn" id="7_f6sb3"]
 
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_f6sb3"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_6yy46"]
+
 [node name="Scene" type="Node" unique_id=147021018 node_paths=PackedStringArray("combat_manager", "combat_ui", "pause_menu", "stats_editor", "hitbox_editor", "combat_tracker")]
 process_mode = 3
 script = ExtResource("1_3253y")
 combat_manager = NodePath("CombatManager")
-combat_ui = NodePath("Panel/Ui")
-pause_menu = NodePath("Panel/PauseMenu")
-stats_editor = NodePath("Panel/StatsEditor")
-hitbox_editor = NodePath("Panel/HitboxEditor")
+combat_ui = NodePath("FullScreen/Ui")
+pause_menu = NodePath("FullScreen/PauseMenu")
+stats_editor = NodePath("FullScreen/CenterDisplay/StatsEditor")
+hitbox_editor = NodePath("FullScreen/CenterDisplay/HitboxEditor")
 combat_tracker = NodePath("CombatTracker")
 
 [node name="CombatManager" type="Node" parent="." unique_id=917351770 groups=["Manager"]]
 unique_name_in_owner = true
-process_mode = 3
+process_mode = 1
 script = ExtResource("2_u3cyc")
 
 [node name="CombatTracker" type="Node" parent="." unique_id=467615047 node_paths=PackedStringArray("combat_manager", "combat_ui")]
+process_mode = 3
 script = ExtResource("7_6yy46")
 combat_manager = NodePath("../CombatManager")
-combat_ui = NodePath("../Panel/Ui")
+combat_ui = NodePath("../FullScreen/Ui")
 
-[node name="Panel" type="Panel" parent="." unique_id=557337310]
+[node name="FullScreen" type="Panel" parent="." unique_id=557337310]
+custom_minimum_size = Vector2(400, 720)
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxEmpty_f6sb3")
 
-[node name="Ui" parent="Panel" unique_id=1800789930 node_paths=PackedStringArray("combat_manager", "qte_display") instance=ExtResource("3_m7jmp")]
+[node name="CenterDisplay" type="Panel" parent="FullScreen" unique_id=829884635]
+process_mode = 3
+z_index = 1
+custom_minimum_size = Vector2(800, 600)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_top = -300.0
+offset_right = 400.0
+offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 6
+mouse_filter = 1
+theme_override_styles/panel = SubResource("StyleBoxEmpty_6yy46")
+
+[node name="QTEDisplay" parent="FullScreen/CenterDisplay" unique_id=1076856728 instance=ExtResource("4_6yy46")]
+custom_minimum_size = Vector2(300, 300)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -150.0
+offset_right = 150.0
+offset_bottom = 150.0
+
+[node name="StatsEditor" parent="FullScreen/CenterDisplay" unique_id=1366687811 instance=ExtResource("5_yp48q")]
+process_mode = 3
+z_index = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="HitboxEditor" parent="FullScreen/CenterDisplay" unique_id=1308570502 instance=ExtResource("7_f6sb3")]
+z_index = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+
+[node name="Ui" parent="FullScreen" unique_id=1800789930 node_paths=PackedStringArray("combat_manager", "qte_display") instance=ExtResource("3_m7jmp")]
+process_mode = 1
 layout_mode = 1
 anchors_preset = 4
 anchor_top = 0.5
@@ -44,44 +108,14 @@ anchor_right = 0.0
 anchor_bottom = 0.5
 grow_horizontal = 1
 combat_manager = NodePath("../../CombatManager")
-qte_display = NodePath("../QTEDisplay")
+qte_display = NodePath("../CenterDisplay/QTEDisplay")
 
-[node name="PauseMenu" parent="Panel" unique_id=1738304921 instance=ExtResource("4_u3cyc")]
+[node name="PauseMenu" parent="FullScreen" unique_id=1738304921 instance=ExtResource("4_u3cyc")]
+process_mode = 3
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
-anchor_top = 1.0
+anchor_right = 1.0
 offset_left = -116.0
-offset_top = -163.0
+offset_right = 0.0
 grow_horizontal = 0
-grow_vertical = 0
-
-[node name="QTEDisplay" parent="Panel" unique_id=1076856728 instance=ExtResource("4_6yy46")]
-custom_minimum_size = Vector2(300, 300)
-layout_mode = 1
-anchors_preset = -1
-anchor_left = 0.5415
-anchor_top = -0.028333327
-anchor_right = 1.1284688
-anchor_bottom = 0.7522917
-offset_left = 149.504
-offset_top = 149.76
-offset_right = -151.552
-offset_bottom = -149.76001
-metadata/_edit_use_anchors_ = true
-
-[node name="StatsEditor" parent="Panel" unique_id=1366687811 instance=ExtResource("5_yp48q")]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="HitboxEditor" parent="Panel" unique_id=1308570502 instance=ExtResource("7_f6sb3")]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2

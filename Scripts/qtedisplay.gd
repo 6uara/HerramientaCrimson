@@ -83,6 +83,7 @@ func _ready() -> void:
 	# Crear overlay para dibujar zonas debug
 	debug_overlay = Control.new()
 	debug_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	debug_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(debug_overlay)
 	move_child(debug_overlay, 0)  # detrás de los hijos visibles
 	debug_overlay.draw.connect(_on_debug_overlay_draw)
@@ -255,6 +256,8 @@ func _on_qte_completed(point: Vector2) -> void:
 		previous_point = ep
 
 	queue_redraw()
+	if debug_overlay:
+		debug_overlay.queue_redraw()  # redibujar el overlay con los datos reales del cálculo
 	print("[QTE] shots resolved, esperando boton Continuar...")
 
 	# El QTE ya no se cierra automáticamente — espera al botón "Continuar"
@@ -372,17 +375,23 @@ func _on_debug_overlay_draw() -> void:
 	if not _debug_mode:
 		return
 
-	var s = Rect2(Vector2.ZERO, debug_overlay.size)
+	# Usar el sprite_panel como referencia: posición del panel relativa al debug_overlay
+	# (ambos son hijos del QTEDisplay, así que sus coords locales son comparables)
+	var s: Rect2
+	if sprite_panel != null and sprite_panel.size.x > 1:
+		s = Rect2(sprite_panel.position, sprite_panel.size)
+	else:
+		s = Rect2(Vector2.ZERO, debug_overlay.size)
 	if s.size.x < 1 or s.size.y < 1:
-		return  # rect aún no calculado
+		return
 
-	# 1. Dibujar Elipses PRIMERO (no dependen de la grilla)
-	if _player != null:
-		_draw_elipses_debug(s)
-
-	# 2. Dibujar Grilla (si el enemigo la tiene configurada)
+	# 1. Dibujar Grilla PRIMERO (al fondo, semi-transparente)
 	var enemy_data: Dictionary = _current_enemy_data
-	if not enemy_data.has("grid_cells") or not enemy_data.has("grid_zones"):
+	var has_grid = enemy_data.has("grid_cells") and enemy_data.has("grid_zones")
+	if not has_grid:
+		# Sin grilla, igual dibujar elipses encima del sprite
+		if _player != null:
+			_draw_elipses_debug(s)
 		return
 	var cells = enemy_data["grid_cells"]
 	var zones = enemy_data["grid_zones"]
@@ -404,11 +413,11 @@ func _on_debug_overlay_draw() -> void:
 			var zone_idx = int(cells[i]) if i < cells.size() else -1
 			if zone_idx >= 0 and zone_idx < zones.size():
 				var z = zones[zone_idx]
-				var fill_col = Color(z["cr"], z["cg"], z["cb"], 0.75)
+				var fill_col = Color(z["cr"], z["cg"], z["cb"], 0.25)
 				debug_overlay.draw_rect(cell_rect, fill_col)
-				debug_overlay.draw_rect(cell_rect, Color.WHITE, false, 1.5)
+				debug_overlay.draw_rect(cell_rect, Color(1, 1, 1, 0.4), false, 1.0)
 			else:
-				debug_overlay.draw_rect(cell_rect, Color(1, 1, 1, 0.25), false, 1.0)
+				debug_overlay.draw_rect(cell_rect, Color(1, 1, 1, 0.1), false, 1.0)
 
 	var font = ThemeDB.fallback_font
 	var zone_labeled = {}
@@ -430,6 +439,10 @@ func _on_debug_overlay_draw() -> void:
 	debug_overlay.draw_string(font, Vector2(s.position.x, s.position.y - 10),
 		"DEBUG MODE - F1 para ocultar",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1.0, 0.8, 0.2))
+
+	# 2. Dibujar Elipses ENCIMA de la grilla (al frente)
+	if _player != null:
+		_draw_elipses_debug(s)
 
 
 # Dibuja el borde de cada elipse de los sets del jugador, con color distinto por disparo

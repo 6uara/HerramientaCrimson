@@ -44,7 +44,7 @@ grow_vertical = 2
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxEmpty_f6sb3")
 
-[node name="CenterDisplay" type="Panel" parent="FullScreen" unique_id=829884635]
+[node name="CenterDisplay" type="PanelContainer" parent="FullScreen" unique_id=1376706850]
 process_mode = 3
 z_index = 1
 custom_minimum_size = Vector2(800, 600)
@@ -67,16 +67,7 @@ theme_override_styles/panel = SubResource("StyleBoxEmpty_6yy46")
 
 [node name="QTEDisplay" parent="FullScreen/CenterDisplay" unique_id=1076856728 instance=ExtResource("4_6yy46")]
 custom_minimum_size = Vector2(500, 400)
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -250.0
-offset_top = -200.0
-offset_right = 250.0
-offset_bottom = 200.0
+layout_mode = 2
 
 [node name="Ui" parent="FullScreen" unique_id=1800789930 node_paths=PackedStringArray("combat_manager", "qte_display") instance=ExtResource("3_m7jmp")]
 process_mode = 1

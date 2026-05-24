@@ -1,5 +1,5 @@
 # hitboxEditor.gd
-# Editor de zonas de daño con grilla. UI 100% generada por código.
+# Editor de zonas de daño con grilla.
 # process_mode: Always
 extends Control
 
@@ -11,7 +11,6 @@ signal close_requested
 const GRID_COLS = 10
 const GRID_ROWS = 15
 const SPRITE_DISPLAY_SIZE = Vector2(300.0, 450.0)
-const PANEL_WIDTH = 300
 
 const DEFAULT_ZONES = [
 	{ "name": "Cabeza",  "mult": 2.0, "color": Color(1.0, 0.25, 0.25, 0.7) },
@@ -28,6 +27,18 @@ const ZONE_COLORS_AVAILABLE = [
 ]
 
 # ──────────────────────────────────────────────
+#  Exports (Vincular desde el Inspector)
+# ──────────────────────────────────────────────
+@export var enemy_tabs: TabBar
+@export var btn_add_zone: Button
+@export var btn_reset: Button
+@export var btn_close: Button
+@export var zone_list: VBoxContainer
+@export var enemy_name_label: Label
+@export var sprite_rect: TextureRect
+@export var grid_container: GridContainer
+
+# ──────────────────────────────────────────────
 #  Estado
 # ──────────────────────────────────────────────
 var _current_enemy = 0
@@ -36,24 +47,17 @@ var _selected_zone = 0
 var _cells = []
 var _cell_buttons = []
 
-# Nodos UI generados por código
-var _enemy_tabs: TabBar
-var _zone_list: VBoxContainer
-var _btn_close_back: Button  # se conserva del @export para compat
-var _grid_container: GridContainer
-var _sprite_rect: TextureRect
-var _enemy_name_label: Label
-
 # ──────────────────────────────────────────────
 #  READY
 # ──────────────────────────────────────────────
-func _draw() -> void:
-	# Fondo opaco para tapar el combate
-	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.06, 0.06, 0.09, 1.0))
-
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_build_ui()
+	# Conexión de señales de los nodos del editor
+	btn_close.pressed.connect(func(): emit_signal("close_requested"))
+	btn_reset.pressed.connect(_reset_all)
+	btn_add_zone.pressed.connect(_add_zone)
+	enemy_tabs.tab_changed.connect(_on_tab_changed)
+	
+	_build_grid()
 	hide()
 
 func refresh() -> void:
@@ -62,118 +66,11 @@ func refresh() -> void:
 		_load_enemy(0)
 
 # ──────────────────────────────────────────────
-#  CONSTRUCCIÓN COMPLETA DE LA UI
-# ──────────────────────────────────────────────
-func _build_ui() -> void:
-	var vp = get_viewport_rect().size
-
-	# ──── PANEL IZQUIERDO ────
-	var left_panel = PanelContainer.new()
-	left_panel.position = Vector2.ZERO
-	left_panel.size = Vector2(PANEL_WIDTH, vp.y)
-	add_child(left_panel)
-
-	var left_vbox = VBoxContainer.new()
-	left_vbox.add_theme_constant_override("separation", 8)
-	left_panel.add_child(left_vbox)
-
-	# Título
-	var title = Label.new()
-	title.text = "Editor de Hitboxes"
-	title.add_theme_font_size_override("font_size", 18)
-	left_vbox.add_child(title)
-
-	# Tabs de enemigos
-	_enemy_tabs = TabBar.new()
-	_enemy_tabs.tab_changed.connect(_on_tab_changed)
-	left_vbox.add_child(_enemy_tabs)
-
-	# Botones acción
-	var btn_row = HBoxContainer.new()
-	var btn_add = Button.new()
-	btn_add.text = "+ Zona"
-	btn_add.pressed.connect(_add_zone)
-	btn_row.add_child(btn_add)
-
-	var btn_reset = Button.new()
-	btn_reset.text = "Reset"
-	btn_reset.pressed.connect(_reset_all)
-	btn_row.add_child(btn_reset)
-
-	var btn_close = Button.new()
-	btn_close.text = "Cerrar"
-	btn_close.pressed.connect(func(): emit_signal("close_requested"))
-	btn_row.add_child(btn_close)
-	left_vbox.add_child(btn_row)
-
-	# Separador
-	left_vbox.add_child(HSeparator.new())
-
-	# Lista de zonas (scroll)
-	var scroll = ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	left_vbox.add_child(scroll)
-
-	_zone_list = VBoxContainer.new()
-	_zone_list.add_theme_constant_override("separation", 6)
-	_zone_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_zone_list)
-
-	# ──── ÁREA DERECHA: SPRITE + GRILLA ────
-	var right_x = PANEL_WIDTH + (vp.x - PANEL_WIDTH - SPRITE_DISPLAY_SIZE.x) / 2
-	var right_y = vp.y * 0.5 - SPRITE_DISPLAY_SIZE.y / 2
-
-	# Label arriba con nombre del enemigo
-	_enemy_name_label = Label.new()
-	_enemy_name_label.position = Vector2(right_x, right_y - 40)
-	_enemy_name_label.size = Vector2(SPRITE_DISPLAY_SIZE.x, 20)
-	_enemy_name_label.text = ""
-	_enemy_name_label.add_theme_font_size_override("font_size", 16)
-	add_child(_enemy_name_label)
-
-	var help = Label.new()
-	help.position = Vector2(right_x, right_y - 18)
-	help.size = Vector2(SPRITE_DISPLAY_SIZE.x, 16)
-	help.text = "Click izq: pintar  |  Click der: borrar  |  Drag para pintar varias"
-	help.add_theme_font_size_override("font_size", 11)
-	help.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	add_child(help)
-
-	# TextureRect del sprite (debajo de la grilla)
-	_sprite_rect = TextureRect.new()
-	_sprite_rect.position = Vector2(right_x, right_y)
-	_sprite_rect.size = SPRITE_DISPLAY_SIZE
-	_sprite_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_sprite_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_sprite_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_sprite_rect)
-
-	# Fondo gris debajo del sprite para ver donde está
-	var bg_rect = ColorRect.new()
-	bg_rect.position = Vector2(right_x, right_y)
-	bg_rect.size = SPRITE_DISPLAY_SIZE
-	bg_rect.color = Color(0.20, 0.20, 0.25, 1.0)
-	bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(bg_rect)
-	move_child(bg_rect, _sprite_rect.get_index())  # bg detrás del sprite
-
-	# Grilla de celdas (encima del sprite)
-	_grid_container = GridContainer.new()
-	_grid_container.position = Vector2(right_x, right_y)
-	_grid_container.size = SPRITE_DISPLAY_SIZE
-	_grid_container.columns = GRID_COLS
-	_grid_container.add_theme_constant_override("h_separation", 1)
-	_grid_container.add_theme_constant_override("v_separation", 1)
-	add_child(_grid_container)
-
-	_build_grid()
-
-# ──────────────────────────────────────────────
-#  GRILLA
+#  GRILLA (Esto sí se genera por código porque depende de Constantes)
 # ──────────────────────────────────────────────
 func _build_grid() -> void:
-	for child in _grid_container.get_children():
-		_grid_container.remove_child(child)
+	for child in grid_container.get_children():
+		grid_container.remove_child(child)
 		child.free()
 	_cell_buttons.clear()
 
@@ -184,11 +81,15 @@ func _build_grid() -> void:
 		for c in GRID_COLS:
 			var btn = Button.new()
 			btn.custom_minimum_size = Vector2(cell_w, cell_h)
+			# Para que el botón llene la celda del GridContainer:
+			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			btn.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			btn.flat = false
 			btn.focus_mode = Control.FOCUS_NONE
+			
 			var idx = r * GRID_COLS + c
 			btn.gui_input.connect(_on_cell_input.bind(idx))
-			_grid_container.add_child(btn)
+			grid_container.add_child(btn)
 			_cell_buttons.append(btn)
 
 	if _cells.is_empty():
@@ -248,10 +149,10 @@ func _on_cell_input(event: InputEvent, cell_idx: int) -> void:
 #  TABS DE ENEMIGOS
 # ──────────────────────────────────────────────
 func _build_enemy_tabs() -> void:
-	while _enemy_tabs.tab_count > 0:
-		_enemy_tabs.remove_tab(0)
+	while enemy_tabs.tab_count > 0:
+		enemy_tabs.remove_tab(0)
 	for d in GameData.enemy_data:
-		_enemy_tabs.add_tab(d["name"])
+		enemy_tabs.add_tab(d["name"])
 
 func _on_tab_changed(idx: int) -> void:
 	_save_current()
@@ -261,8 +162,6 @@ func _on_tab_changed(idx: int) -> void:
 #  CARGA / GUARDADO
 # ──────────────────────────────────────────────
 func _build_default_cells() -> Array:
-	# Default: Cabeza filas 0-1, Torso filas 2-7, Piernas filas 8-14
-	# Asume zonas en orden [Cabeza, Torso, Piernas]
 	var cells = []
 	for r in GRID_ROWS:
 		for c in GRID_COLS:
@@ -279,7 +178,7 @@ func _build_default_cells() -> Array:
 func _load_enemy(idx: int) -> void:
 	_current_enemy = idx
 	var d = GameData.enemy_data[idx]
-	_enemy_name_label.text = "Editando: %s" % d["name"]
+	enemy_name_label.text = "Editando: %s" % d["name"]
 
 	if d.has("grid_zones") and not d["grid_zones"].is_empty():
 		_zones = []
@@ -299,7 +198,6 @@ func _load_enemy(idx: int) -> void:
 		for v in d["grid_cells"]:
 			_cells.append(int(v))
 	else:
-		# Sin datos guardados: aplicar layout default
 		_cells = _build_default_cells()
 		_save_current()
 
@@ -309,11 +207,11 @@ func _load_enemy(idx: int) -> void:
 	if sprite_path != "" and ResourceLoader.exists(sprite_path):
 		var tex = load(sprite_path)
 		if tex is Texture2D:
-			_sprite_rect.texture = tex
+			sprite_rect.texture = tex
 		else:
-			_sprite_rect.texture = null
+			sprite_rect.texture = null
 	else:
-		_sprite_rect.texture = null
+		sprite_rect.texture = null
 
 	_refresh_grid_visual()
 	_refresh_zone_list()
@@ -329,7 +227,6 @@ func _save_current() -> void:
 		})
 	d["grid_zones"] = zones_out
 	d["grid_cells"] = _cells.duplicate()
-	# Persistir en savefile
 	GameData.save_enemy_zones()
 
 # ──────────────────────────────────────────────
@@ -368,13 +265,13 @@ func _remove_zone(idx: int) -> void:
 	_save_current()
 
 # ──────────────────────────────────────────────
-#  PANEL LATERAL
+#  PANEL LATERAL (Generación dinámica de items)
 # ──────────────────────────────────────────────
 func _refresh_zone_list() -> void:
-	if _zone_list == null:
+	if zone_list == null:
 		return
-	for child in _zone_list.get_children():
-		_zone_list.remove_child(child)
+	for child in zone_list.get_children():
+		zone_list.remove_child(child)
 		child.free()
 
 	for i in _zones.size():
@@ -392,23 +289,22 @@ func _refresh_zone_list() -> void:
 		var name_edit = LineEdit.new()
 		name_edit.text = z["name"]
 		name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var zi = i
-		name_edit.text_changed.connect(func(t): _zones[zi]["name"] = t; _save_current())
+		# SOLUCIÓN: bind congela el valor de 'i'
+		name_edit.text_changed.connect(_on_zone_name_changed.bind(i))
 		row.add_child(name_edit)
 
 		var btn_sel = Button.new()
 		btn_sel.text = "Activa" if i == _selected_zone else "Usar"
 		btn_sel.disabled = (i == _selected_zone)
-		btn_sel.pressed.connect(func():
-			_selected_zone = zi
-			call_deferred("_refresh_zone_list")
-		)
+		# SOLUCIÓN: bind congela el valor de 'i'
+		btn_sel.pressed.connect(_on_zone_selected.bind(i))
 		row.add_child(btn_sel)
 
 		var btn_del = Button.new()
 		btn_del.text = "X"
 		btn_del.custom_minimum_size.x = 26
-		btn_del.pressed.connect(func(): call_deferred("_remove_zone", zi))
+		# SOLUCIÓN: bind congela el valor de 'i'
+		btn_del.pressed.connect(_on_zone_deleted.bind(i))
 		row.add_child(btn_del)
 		vbox.add_child(row)
 
@@ -422,13 +318,14 @@ func _refresh_zone_list() -> void:
 		mult_spin.step = 0.1
 		mult_spin.value = z["mult"]
 		mult_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		mult_spin.value_changed.connect(func(v): _zones[zi]["mult"] = v; _save_current())
+		# SOLUCIÓN: bind congela el valor de 'i'
+		mult_spin.value_changed.connect(_on_zone_mult_changed.bind(i))
 		mult_row.add_child(mult_spin)
 		vbox.add_child(mult_row)
 
 		var count = 0
 		for v in _cells:
-			if v == zi:
+			if v == i:
 				count += 1
 		var count_lbl = Label.new()
 		count_lbl.text = "Celdas: %d / %d" % [count, GRID_COLS * GRID_ROWS]
@@ -436,7 +333,25 @@ func _refresh_zone_list() -> void:
 		count_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		vbox.add_child(count_lbl)
 
-		_zone_list.add_child(panel)
+		zone_list.add_child(panel)
+
+# ──────────────────────────────────────────────
+#  HELPERS PARA SEÑALES (Evitan el bug de lambdas en loops)
+# ──────────────────────────────────────────────
+func _on_zone_name_changed(text: String, idx: int) -> void:
+	_zones[idx]["name"] = text
+	_save_current()
+
+func _on_zone_selected(idx: int) -> void:
+	_selected_zone = idx
+	_refresh_zone_list()
+
+func _on_zone_deleted(idx: int) -> void:
+	_remove_zone(idx)
+
+func _on_zone_mult_changed(val: float, idx: int) -> void:
+	_zones[idx]["mult"] = val
+	_save_current()
 
 # ──────────────────────────────────────────────
 #  Lookup para QTE

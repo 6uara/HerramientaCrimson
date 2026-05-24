@@ -2,16 +2,124 @@
 
 [ext_resource type="Script" uid="uid://c5q5skj5d48j5" path="res://Scripts/hitboxEditor_.gd" id="1_xp1hi"]
 
-[node name="HitboxEditor" type="Control" unique_id=1308570502]
+[node name="HitboxEditor" type="Panel" unique_id=2050798308 node_paths=PackedStringArray("enemy_tabs", "btn_add_zone", "btn_reset", "btn_close", "zone_list", "enemy_name_label", "sprite_rect", "grid_container")]
 process_mode = 3
-layout_mode = 3
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
+custom_minimum_size = Vector2(800, 600)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 6
 size_flags_vertical = 6
 script = ExtResource("1_xp1hi")
+enemy_tabs = NodePath("MainLayout/LeftPanel/MarginContainer/LeftContainer/EnemyTabs")
+btn_add_zone = NodePath("MainLayout/LeftPanel/MarginContainer/LeftContainer/Buttons/BtnAddZone")
+btn_reset = NodePath("MainLayout/LeftPanel/MarginContainer/LeftContainer/Buttons/BtnReset")
+btn_close = NodePath("MainLayout/LeftPanel/MarginContainer/LeftContainer/Buttons/BtnClose")
+zone_list = NodePath("MainLayout/LeftPanel/MarginContainer/LeftContainer/ScrollContainer/ZoneList")
+enemy_name_label = NodePath("MainLayout/CenterContainer/CenterVContainer/EnemyNameLabel")
+sprite_rect = NodePath("MainLayout/CenterContainer/CenterVContainer/Control/TextureRect")
+grid_container = NodePath("MainLayout/CenterContainer/CenterVContainer/Control/GridContainer")
+
+[node name="MainLayout" type="HBoxContainer" parent="." unique_id=1416537993]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="LeftPanel" type="PanelContainer" parent="MainLayout" unique_id=594198331]
+custom_minimum_size = Vector2(300, 1)
+layout_mode = 2
+mouse_filter = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="MainLayout/LeftPanel" unique_id=563825532]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="LeftContainer" type="VBoxContainer" parent="MainLayout/LeftPanel/MarginContainer" unique_id=108726214]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="MainLayout/LeftPanel/MarginContainer/LeftContainer" unique_id=879621883]
+layout_mode = 2
+text = "Editor de Hitboxes"
+
+[node name="EnemyTabs" type="TabBar" parent="MainLayout/LeftPanel/MarginContainer/LeftContainer" unique_id=686815022]
+layout_mode = 2
+mouse_filter = 1
+
+[node name="Buttons" type="HBoxContainer" parent="MainLayout/LeftPanel/MarginContainer/LeftContainer" unique_id=490779187]
+layout_mode = 2
+alignment = 1
+
+[node name="BtnAddZone" type="Button" parent="MainLayout/LeftPanel/MarginContainer/LeftContainer/Buttons" unique_id=474113912]
+layout_mode = 2
+text = "Add Zone"
+
+[node name="BtnReset" type="Button" parent="MainLayout/LeftPanel/MarginContainer/LeftContainer/Buttons" unique_id=1580634452]
+layout_mode = 2
+text = "Reset"
+
+[node name="BtnClose" type="Button" parent="MainLayout/LeftPanel/MarginContainer/LeftContainer/Buttons" unique_id=5182796]
+layout_mode = 2
+text = "Close"
+
+[node name="HSeparator" type="HSeparator" parent="MainLayout/LeftPanel/MarginContainer/LeftContainer" unique_id=1048327676]
+layout_mode = 2
+mouse_filter = 1
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MainLayout/LeftPanel/MarginContainer/LeftContainer" unique_id=1139164251]
+clip_contents = false
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ZoneList" type="VBoxContainer" parent="MainLayout/LeftPanel/MarginContainer/LeftContainer/ScrollContainer" unique_id=1234028572]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="CenterContainer" type="CenterContainer" parent="MainLayout" unique_id=323604774]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CenterVContainer" type="VBoxContainer" parent="MainLayout/CenterContainer" unique_id=1309650080]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="EnemyNameLabel" type="Label" parent="MainLayout/CenterContainer/CenterVContainer" unique_id=497789510]
+layout_mode = 2
+
+[node name="HelpLabel" type="Label" parent="MainLayout/CenterContainer/CenterVContainer" unique_id=1010337194]
+layout_mode = 2
+text = "M1: pintar | M2: borrar | Drag para pintar varias"
+
+[node name="Control" type="Control" parent="MainLayout/CenterContainer/CenterVContainer" unique_id=169773966]
+custom_minimum_size = Vector2(300, 450)
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="MainLayout/CenterContainer/CenterVContainer/Control" unique_id=1799447757]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="GridContainer" type="GridContainer" parent="MainLayout/CenterContainer/CenterVContainer/Control" unique_id=1004163034]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/h_separation = 1
+theme_override_constants/v_separation = 1
+columns = 10

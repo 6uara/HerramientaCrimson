@@ -2,56 +2,54 @@
 
 [ext_resource type="Script" uid="uid://dgsmwoea4h7si" path="res://Scripts/stats_editor.gd" id="1_g62nb"]
 
-[node name="StatsEditor" type="Control" unique_id=1366687811 node_paths=PackedStringArray("btn_close", "btn_apply", "btn_reset", "tab_container")]
-custom_minimum_size = Vector2(300, 300)
-layout_mode = 3
-anchors_preset = 0
+[node name="StatsEditor" type="Panel" unique_id=2136132479 node_paths=PackedStringArray("btn_close", "btn_apply", "btn_reset", "tab_container")]
+custom_minimum_size = Vector2(500, 500)
+offset_right = 300.0
+offset_bottom = 500.0
 size_flags_horizontal = 4
 size_flags_vertical = 4
 script = ExtResource("1_g62nb")
-btn_close = NodePath("HBoxContainer/Cancel")
-btn_apply = NodePath("HBoxContainer/Apply")
-btn_reset = NodePath("HBoxContainer/Reset")
-tab_container = NodePath("TabContainer")
+btn_close = NodePath("HBoxContainer2/HBoxContainer/Cancel")
+btn_apply = NodePath("HBoxContainer2/HBoxContainer/Apply")
+btn_reset = NodePath("HBoxContainer2/HBoxContainer/Reset")
+tab_container = NodePath("HBoxContainer2/TabContainer")
 
-[node name="TabContainer" type="TabContainer" parent="." unique_id=1402719805]
-unique_name_in_owner = true
+[node name="HBoxContainer2" type="VBoxContainer" parent="." unique_id=898557052]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="TabContainer" type="TabContainer" parent="HBoxContainer2" unique_id=1402719805]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(500, 400)
+layout_mode = 2
 tab_alignment = 1
 all_tabs_in_front = true
 
-[node name="HBoxContainer" type="VBoxContainer" parent="." unique_id=998652639]
+[node name="HBoxContainer" type="VBoxContainer" parent="HBoxContainer2" unique_id=998652639]
 custom_minimum_size = Vector2(100, 100)
-layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_top = -128.0
-offset_right = 224.0
-grow_vertical = 0
+layout_mode = 2
 alignment = 1
 
-[node name="Apply" type="Button" parent="HBoxContainer" unique_id=1415169406]
+[node name="Status" type="Label" parent="HBoxContainer2/HBoxContainer" unique_id=386976153]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Status"
+
+[node name="Apply" type="Button" parent="HBoxContainer2/HBoxContainer" unique_id=1415169406]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Apply"
 
-[node name="Cancel" type="Button" parent="HBoxContainer" unique_id=369685225]
+[node name="Cancel" type="Button" parent="HBoxContainer2/HBoxContainer" unique_id=369685225]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Cancel"
 
-[node name="Reset" type="Button" parent="HBoxContainer" unique_id=2072109596]
+[node name="Reset" type="Button" parent="HBoxContainer2/HBoxContainer" unique_id=2072109596]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Reset"
-
-[node name="Status" type="Label" parent="HBoxContainer" unique_id=386976153]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Status"

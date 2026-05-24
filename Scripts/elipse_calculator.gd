@@ -50,6 +50,44 @@ func next_point_from(previous: Vector2) -> Vector2:
 	var m: float = k + ry * w * sin(q)
 	return Vector2(n, m)
 
+
+
+# Versiones "verbose" que devuelven un Dictionary con TODAS las variables intermedias.
+# Útil para debug/análisis: muestra u, v, q, w, rx, ry, n, m.
+func next_point_verbose() -> Dictionary:
+	var u: float = randf()
+	var v: float = randf()
+	var q: float = 2.0 * PI * u
+	var w: float = sqrt(v)
+	var rx: float = r * sqrt(a)
+	var ry: float = r * sqrt(b)
+	var n: float = h + rx * w * cos(q)
+	var m: float = k + ry * w * sin(q)
+	return {
+		"u": u, "v": v, "q": q, "w": w,
+		"rx": rx, "ry": ry,
+		"n": n, "m": m,
+		"h": h, "k": k, "r": r, "a": a, "b": b,
+		"point": Vector2(n, m),
+	}
+
+func next_point_from_verbose(previous: Vector2) -> Dictionary:
+	var u: float = randf()
+	var v: float = randf()
+	var q: float = 2.0 * PI * u
+	var w: float = sqrt(v)
+	var rx: float = r * sqrt(a)
+	var ry: float = r * sqrt(b)
+	var n: float = previous.x + rx * w * cos(q)
+	var m: float = k + ry * w * sin(q)
+	return {
+		"u": u, "v": v, "q": q, "w": w,
+		"rx": rx, "ry": ry,
+		"n": n, "m": m,
+		"h": h, "k": k, "r": r, "a": a, "b": b,
+		"point": Vector2(n, m),
+	}
+
 # ──────────────────────────────────────────────
 #  CONVERSIÓN DESMOS ↔ JUEGO
 # ──────────────────────────────────────────────

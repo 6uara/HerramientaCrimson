@@ -19,8 +19,8 @@ script = ExtResource("1_3253y")
 combat_manager = NodePath("CombatManager")
 combat_ui = NodePath("FullScreen/Ui")
 pause_menu = NodePath("FullScreen/PauseMenu")
-stats_editor = NodePath("FullScreen/CenterDisplay/StatsEditor")
-hitbox_editor = NodePath("FullScreen/CenterDisplay/HitboxEditor")
+stats_editor = NodePath("FullScreen/StatsEditor")
+hitbox_editor = NodePath("FullScreen/HitboxEditor")
 combat_tracker = NodePath("CombatTracker")
 
 [node name="CombatManager" type="Node" parent="." unique_id=917351770 groups=["Manager"]]
@@ -66,38 +66,17 @@ mouse_filter = 1
 theme_override_styles/panel = SubResource("StyleBoxEmpty_6yy46")
 
 [node name="QTEDisplay" parent="FullScreen/CenterDisplay" unique_id=1076856728 instance=ExtResource("4_6yy46")]
-custom_minimum_size = Vector2(300, 300)
+custom_minimum_size = Vector2(500, 400)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -150.0
-offset_right = 150.0
-offset_bottom = 150.0
-
-[node name="StatsEditor" parent="FullScreen/CenterDisplay" unique_id=1366687811 instance=ExtResource("5_yp48q")]
-process_mode = 3
-z_index = 1
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 1
-
-[node name="HitboxEditor" parent="FullScreen/CenterDisplay" unique_id=1308570502 instance=ExtResource("7_f6sb3")]
-z_index = 1
-layout_mode = 1
-anchors_preset = 15
-anchor_left = 0.0
-anchor_top = 0.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 1
+offset_left = -250.0
+offset_top = -200.0
+offset_right = 250.0
+offset_bottom = 200.0
 
 [node name="Ui" parent="FullScreen" unique_id=1800789930 node_paths=PackedStringArray("combat_manager", "qte_display") instance=ExtResource("3_m7jmp")]
 process_mode = 1
@@ -119,3 +98,21 @@ anchor_right = 1.0
 offset_left = -116.0
 offset_right = 0.0
 grow_horizontal = 0
+
+[node name="StatsEditor" parent="FullScreen" unique_id=1366687811 instance=ExtResource("5_yp48q")]
+process_mode = 3
+z_index = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 0.0
+offset_bottom = 0.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="HitboxEditor" parent="FullScreen" unique_id=1308570502 instance=ExtResource("7_f6sb3")]
+visible = false
+z_index = 1
+layout_mode = 1

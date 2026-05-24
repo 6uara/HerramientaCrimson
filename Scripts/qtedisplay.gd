@@ -59,6 +59,7 @@ var _bullet_damage: float = 0.0
 var _player: Object = null
 var _elipse: Object = null
 var _resolved: Array = []        # shots ya calculados
+var _shot_calc_data: Array = []  # datos verbose de cada disparo (u, v, q, w, rx, ry, n, m, h, k, r, a, b, point)
 var _current_enemy_data: Dictionary = {}  # datos del enemigo objetivo actual
 var _debug_mode: bool = false  # F1 toggle para ver zonas
 
@@ -112,6 +113,7 @@ func start_qte(player: Object, bullets: int, sprite_texture: Texture2D = null) -
 	_shots_pending  = bullets
 	_bullet_damage  = player.damage
 	_resolved.clear()
+	_shot_calc_data.clear()
 	_phase = "vertical"
 	_line_v = 0.0
 	_line_h = 1.0 if player.left_handed else 0.0
@@ -190,15 +192,26 @@ func _on_qte_completed(point: Vector2) -> void:
 	_line_h = point.x
 	_line_v = point.y
 
-	# Primer disparo — punto del QTE
+	# Primer disparo — punto del QTE (manual, sin elipse)
 	var first = _resolve_shot(point, _player)
 	_resolved.append(first)
+	_shot_calc_data.append({
+		"u": -1.0, "v": -1.0, "q": -1.0, "w": -1.0,
+		"rx": 0.0, "ry": 0.0,
+		"n": point.x, "m": point.y,
+		"h": 0.0, "k": 0.0, "r": 0.0, "a": 0.0, "b": 0.0,
+		"point": point,
+		"previous_point": Vector2.ZERO,
+		"manual": true,
+	})
+	print("\n[Elipse Calc] === DISPARO #1 (manual, sin elipse) ===")
+	print("  punto final: (n=%.4f, m=%.4f)" % [point.x, point.y])
 
 	# Disparos siguientes — cada uno usa el set de elipse correspondiente a su índice
 	var previous_point = point
 	for i in range(1, _shots_pending):
 		var shot_set: Dictionary = _player.call("get_elipse_set", i)
-		
+
 		# --- CORRECCIÓN MATEMÁTICA ---
 		# Extraemos el offset relativo porque desmos_to_game convierte 0 en 0.5 absoluto.
 		var offset_x = float(shot_set.get("h", 0.5)) - 0.5
@@ -206,17 +219,38 @@ func _on_qte_completed(point: Vector2) -> void:
 
 		# La X se encadena al impacto previo sumando el offset.
 		_elipse.h = previous_point.x + offset_x
-		
+
 		# Según la lógica del GDD para este retroceso, la Y mantiene como base el tiro inicial.
 		_elipse.k = point.y + offset_y
 		# -----------------------------
-		
+
 		_elipse.r = float(shot_set.get("r", 0.05))
 		_elipse.a = float(shot_set.get("a", 1.0))
 		_elipse.b = float(shot_set.get("b", 1.0))
-		var ep: Vector2 = _elipse.next_point_from(previous_point)
-		
-		ep = ep.clamp(Vector2.ZERO, Vector2.ONE)
+
+		# Versión verbose: obtiene TODAS las variables intermedias del cálculo
+		var calc: Dictionary = _elipse.next_point_from_verbose(previous_point)
+		var ep: Vector2 = (calc["point"] as Vector2).clamp(Vector2.ZERO, Vector2.ONE)
+
+		# Print detallado de las variables
+		print("\n[Elipse Calc] === DISPARO #%d ===" % (i + 1))
+		print("  Parametros de elipse: h=%.4f, k=%.4f, r=%.4f, a=%.4f, b=%.4f" % [
+			calc["h"], calc["k"], calc["r"], calc["a"], calc["b"]
+		])
+		print("  Variables aleatorias: u=%.4f, v=%.4f" % [calc["u"], calc["v"]])
+		print("  Variables de calculo: q=%.4f rad (%.2f°), w=%.4f" % [
+			calc["q"], rad_to_deg(calc["q"]), calc["w"]
+		])
+		print("  Radios efectivos: rx=%.4f, ry=%.4f" % [calc["rx"], calc["ry"]])
+		print("  Punto base (previo): (%.4f, %.4f)" % [previous_point.x, previous_point.y])
+		print("  Punto final: n=%.4f, m=%.4f" % [calc["n"], calc["m"]])
+		print("  Punto clampeado: (%.4f, %.4f)" % [ep.x, ep.y])
+
+		# Guardar datos del cálculo para el debug overlay
+		calc["point"] = ep
+		calc["previous_point"] = previous_point
+		_shot_calc_data.append(calc)
+
 		_resolved.append(_resolve_shot(ep, _player))
 		previous_point = ep
 
@@ -400,10 +434,6 @@ func _on_debug_overlay_draw() -> void:
 
 # Dibuja el borde de cada elipse de los sets del jugador, con color distinto por disparo
 func _draw_elipses_debug(sprite_rect: Rect2) -> void:
-	var cad = int(_player.get("cadence"))
-	if cad <= 0:
-		return
-
 	var colors = [
 		Color(1.0, 0.2, 0.2, 0.9),   # rojo
 		Color(0.2, 1.0, 0.2, 0.9),   # verde
@@ -412,36 +442,91 @@ func _draw_elipses_debug(sprite_rect: Rect2) -> void:
 		Color(1.0, 0.4, 1.0, 0.9),   # magenta
 		Color(0.4, 1.0, 1.0, 0.9),   # cian
 	]
+	var font = ThemeDB.fallback_font
 
+	# Si hay datos de cálculo (después de un QTE resuelto), usar esos.
+	if _shot_calc_data.size() > 0:
+		_draw_elipses_from_calc_data(sprite_rect, colors, font)
+		return
+
+	# Fallback: mostrar elipses teóricas del jugador (antes del QTE)
+	var cad = int(_player.get("cadence"))
+	if cad <= 0:
+		return
 	for i in cad:
 		var set_game: Dictionary = _player.call("get_elipse_set", i)
 		var col: Color = colors[i % colors.size()]
-
 		var h = float(set_game.get("h", 0.5))
 		var k = float(set_game.get("k", 0.5))
 		var r = float(set_game.get("r", 0.05))
 		var a = float(set_game.get("a", 1.0))
 		var b = float(set_game.get("b", 1.0))
-
 		var center_px = sprite_rect.position + Vector2(h * sprite_rect.size.x, k * sprite_rect.size.y)
 		var rx_px = r * sqrt(a) * sprite_rect.size.x
 		var ry_px = r * sqrt(b) * sprite_rect.size.y
-
-		var points = PackedVector2Array()
-		var segments = 48
-		for seg in segments + 1:
-			var angle = 2.0 * PI * float(seg) / float(segments)
-			points.append(center_px + Vector2(cos(angle) * rx_px, sin(angle) * ry_px))
-		debug_overlay.draw_polyline(points, col, 2.0, true)
-
-		debug_overlay.draw_line(
-			center_px + Vector2(-4, 0), center_px + Vector2(4, 0),
-			col, 1.5)
-		debug_overlay.draw_line(
-			center_px + Vector2(0, -4), center_px + Vector2(0, 4),
-			col, 1.5)
-
-		var font = ThemeDB.fallback_font
+		_draw_ellipse_outline(center_px, rx_px, ry_px, col)
+		_draw_center_cross(center_px, col)
 		debug_overlay.draw_string(font, center_px + Vector2(6, -6),
 			"#%d" % (i + 1),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
+
+
+# Dibuja las elipses con los datos REALES del cálculo (después del QTE)
+# Muestra contorno, centro, punto de impacto y línea desde el centro al punto
+func _draw_elipses_from_calc_data(sprite_rect: Rect2, colors: Array, font) -> void:
+	for i in _shot_calc_data.size():
+		var calc: Dictionary = _shot_calc_data[i]
+		var col: Color = colors[i % colors.size()]
+
+		var point_px = sprite_rect.position + Vector2(
+			calc["point"].x * sprite_rect.size.x,
+			calc["point"].y * sprite_rect.size.y
+		)
+
+		# Primer disparo (manual, sin elipse) → solo el punto
+		if calc.get("manual", false):
+			debug_overlay.draw_circle(point_px, 5.0, col)
+			debug_overlay.draw_string(font, point_px + Vector2(8, -8),
+				"#1 (manual)",
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, col)
+			continue
+
+		# Centro de la elipse en coords del juego: (h, k) que ya tiene los offsets aplicados
+		var center_norm = Vector2(calc["h"], calc["k"])
+		var center_px = sprite_rect.position + Vector2(
+			center_norm.x * sprite_rect.size.x,
+			center_norm.y * sprite_rect.size.y
+		)
+		var rx_px = calc["rx"] * sprite_rect.size.x
+		var ry_px = calc["ry"] * sprite_rect.size.y
+
+		_draw_ellipse_outline(center_px, rx_px, ry_px, col)
+		_draw_center_cross(center_px, col)
+		debug_overlay.draw_line(center_px, point_px, col, 1.5)
+		debug_overlay.draw_circle(point_px, 5.0, col)
+
+		debug_overlay.draw_string(font, center_px + Vector2(6, -6),
+			"#%d" % (i + 1),
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
+		debug_overlay.draw_string(font, point_px + Vector2(8, 4),
+			"(%.2f, %.2f)" % [calc["point"].x, calc["point"].y],
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, col)
+
+
+# Helpers de dibujo
+func _draw_ellipse_outline(center: Vector2, rx: float, ry: float, col: Color) -> void:
+	var pts = PackedVector2Array()
+	var segments = 48
+	for seg in segments + 1:
+		var angle = 2.0 * PI * float(seg) / float(segments)
+		pts.append(center + Vector2(cos(angle) * rx, sin(angle) * ry))
+	debug_overlay.draw_polyline(pts, col, 2.0, true)
+
+
+func _draw_center_cross(center: Vector2, col: Color) -> void:
+	debug_overlay.draw_line(
+		center + Vector2(-4, 0), center + Vector2(4, 0),
+		col, 1.5)
+	debug_overlay.draw_line(
+		center + Vector2(0, -4), center + Vector2(0, 4),
+		col, 1.5)

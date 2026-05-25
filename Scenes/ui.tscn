@@ -10,105 +10,104 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_fyqef")
-player_cards_container = NodePath("VBoxContainer/PlayerArea/PlayerCards")
-enemy_cards_container = NodePath("VBoxContainer/EnemyArea/EnemyCards")
-action_panel = NodePath("VBoxContainer/CombatArea")
-active_char_label = NodePath("VBoxContainer/CombatArea/VBoxContainer/ActiveCharLabel")
-ammo_label = NodePath("VBoxContainer/CombatArea/VBoxContainer/AmmoLabel")
-bullet_slider = NodePath("VBoxContainer/CombatArea/VBoxContainer/BulletSlider")
-bullet_count_label = NodePath("VBoxContainer/CombatArea/VBoxContainer/BulletCount")
-attack_button = NodePath("VBoxContainer/CombatArea/VBoxContainer/Buttons/Attack")
-reload_button = NodePath("VBoxContainer/CombatArea/VBoxContainer/Buttons/Reload")
-log_label = NodePath("Log")
-pause_button = NodePath("VBoxContainer/Pause")
+player_cards_container = NodePath("HBoxContainer/VBoxContainer/PlayerArea/PlayerCards")
+enemy_cards_container = NodePath("HBoxContainer/VBoxContainer/EnemyArea/EnemyCards")
+action_panel = NodePath("HBoxContainer/VBoxContainer/CombatArea")
+active_char_label = NodePath("HBoxContainer/VBoxContainer/CombatArea/VBoxContainer/ActiveCharLabel")
+ammo_label = NodePath("HBoxContainer/VBoxContainer/CombatArea/VBoxContainer/AmmoLabel")
+bullet_slider = NodePath("HBoxContainer/VBoxContainer/CombatArea/VBoxContainer/BulletSlider")
+bullet_count_label = NodePath("HBoxContainer/VBoxContainer/CombatArea/VBoxContainer/BulletCount")
+attack_button = NodePath("HBoxContainer/VBoxContainer/CombatArea/VBoxContainer/Buttons/Attack")
+reload_button = NodePath("HBoxContainer/VBoxContainer/CombatArea/VBoxContainer/Buttons/Reload")
+log_label = NodePath("HBoxContainer/Log")
+pause_button = NodePath("HBoxContainer/VBoxContainer/Pause")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1358999328]
-texture_filter = 1
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1778347790]
 layout_mode = 1
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_top = -114.5
-offset_right = 123.0
-offset_bottom = 114.5
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
 grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer" unique_id=1358999328]
+texture_filter = 1
+custom_minimum_size = Vector2(800, 500)
+layout_mode = 2
+size_flags_horizontal = 0
 alignment = 1
 
-[node name="Pause" type="Button" parent="VBoxContainer" unique_id=1600358588]
+[node name="Pause" type="Button" parent="HBoxContainer/VBoxContainer" unique_id=1600358588]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Pause"
 
-[node name="EnemyArea" type="VBoxContainer" parent="VBoxContainer" unique_id=540072500]
+[node name="EnemyArea" type="VBoxContainer" parent="HBoxContainer/VBoxContainer" unique_id=540072500]
 layout_mode = 2
 
-[node name="Enemigos" type="Label" parent="VBoxContainer/EnemyArea" unique_id=1103961433]
+[node name="Enemigos" type="Label" parent="HBoxContainer/VBoxContainer/EnemyArea" unique_id=1103961433]
 layout_mode = 2
 text = "Enemigos"
 
-[node name="EnemyCards" type="HBoxContainer" parent="VBoxContainer/EnemyArea" unique_id=460269163]
+[node name="EnemyCards" type="HBoxContainer" parent="HBoxContainer/VBoxContainer/EnemyArea" unique_id=460269163]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="PlayerArea" type="VBoxContainer" parent="VBoxContainer" unique_id=665448992]
+[node name="PlayerArea" type="VBoxContainer" parent="HBoxContainer/VBoxContainer" unique_id=665448992]
 layout_mode = 2
 
-[node name="Jugadores" type="Label" parent="VBoxContainer/PlayerArea" unique_id=283659220]
+[node name="Jugadores" type="Label" parent="HBoxContainer/VBoxContainer/PlayerArea" unique_id=283659220]
 layout_mode = 2
 text = "Jugadores"
 
-[node name="PlayerCards" type="HBoxContainer" parent="VBoxContainer/PlayerArea" unique_id=185474804]
+[node name="PlayerCards" type="HBoxContainer" parent="HBoxContainer/VBoxContainer/PlayerArea" unique_id=185474804]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="CombatArea" type="PanelContainer" parent="VBoxContainer" unique_id=1562045248]
+[node name="CombatArea" type="PanelContainer" parent="HBoxContainer/VBoxContainer" unique_id=1562045248]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 8
 
-[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/CombatArea" unique_id=1677424496]
+[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/VBoxContainer/CombatArea" unique_id=1677424496]
 layout_mode = 2
 
-[node name="ActiveCharLabel" type="Label" parent="VBoxContainer/CombatArea/VBoxContainer" unique_id=2087093044]
+[node name="ActiveCharLabel" type="Label" parent="HBoxContainer/VBoxContainer/CombatArea/VBoxContainer" unique_id=2087093044]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="AmmoLabel" type="Label" parent="VBoxContainer/CombatArea/VBoxContainer" unique_id=629167722]
+[node name="AmmoLabel" type="Label" parent="HBoxContainer/VBoxContainer/CombatArea/VBoxContainer" unique_id=629167722]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="BulletSlider" type="HSlider" parent="VBoxContainer/CombatArea/VBoxContainer" unique_id=1852113477]
+[node name="BulletSlider" type="HSlider" parent="HBoxContainer/VBoxContainer/CombatArea/VBoxContainer" unique_id=1852113477]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="BulletCount" type="Label" parent="VBoxContainer/CombatArea/VBoxContainer" unique_id=1523121333]
+[node name="BulletCount" type="Label" parent="HBoxContainer/VBoxContainer/CombatArea/VBoxContainer" unique_id=1523121333]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="Buttons" type="HBoxContainer" parent="VBoxContainer/CombatArea/VBoxContainer" unique_id=655105768]
+[node name="Buttons" type="HBoxContainer" parent="HBoxContainer/VBoxContainer/CombatArea/VBoxContainer" unique_id=655105768]
 layout_mode = 2
 alignment = 1
 
-[node name="Attack" type="Button" parent="VBoxContainer/CombatArea/VBoxContainer/Buttons" unique_id=1726934528]
+[node name="Attack" type="Button" parent="HBoxContainer/VBoxContainer/CombatArea/VBoxContainer/Buttons" unique_id=1726934528]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Attack"
 expand_icon = true
 
-[node name="Reload" type="Button" parent="VBoxContainer/CombatArea/VBoxContainer/Buttons" unique_id=707343397]
+[node name="Reload" type="Button" parent="HBoxContainer/VBoxContainer/CombatArea/VBoxContainer/Buttons" unique_id=707343397]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Reload"
 expand_icon = true
 
-[node name="Log" type="RichTextLabel" parent="." unique_id=478631093]
+[node name="Log" type="RichTextLabel" parent="HBoxContainer" unique_id=478631093]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -371.0
-offset_bottom = 264.0
-grow_horizontal = 0
+custom_minimum_size = Vector2(300, 300)
+layout_mode = 2
+size_flags_horizontal = 10

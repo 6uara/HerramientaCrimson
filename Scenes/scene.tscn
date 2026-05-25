@@ -72,11 +72,6 @@ layout_mode = 2
 [node name="Ui" parent="FullScreen" unique_id=1800789930 node_paths=PackedStringArray("combat_manager", "qte_display") instance=ExtResource("3_m7jmp")]
 process_mode = 1
 layout_mode = 1
-anchors_preset = 4
-anchor_top = 0.5
-anchor_right = 0.0
-anchor_bottom = 0.5
-grow_horizontal = 1
 combat_manager = NodePath("../../CombatManager")
 qte_display = NodePath("../CenterDisplay/QTEDisplay")
 

@@ -48,6 +48,9 @@ func set_tracker(tracker: Node) -> void:
 	_tracker = tracker
 
 func _ready() -> void:
+	# Las señales del CombatManager se conectan UNA SOLA VEZ acá.
+	# Al reiniciar el combate NO se llama _ready() de nuevo,
+	# así que no hay riesgo de conexiones duplicadas.
 	combat_manager.player_ready_changed.connect(_on_player_ready_changed)
 	combat_manager.action_queued.connect(_on_action_queued)
 	combat_manager.action_started.connect(_on_action_started)
@@ -55,8 +58,9 @@ func _ready() -> void:
 	
 	combat_manager.character_died.connect(_on_character_died)
 	combat_manager.combat_ended.connect(_on_combat_ended)
+	# atb_updated ya no existe — _refresh_bars se llama desde _process
 
-	# Conectar botones
+	# Conectar botones (también una sola vez)
 	attack_button.pressed.connect(_on_attack_pressed)
 	reload_button.pressed.connect(_on_reload_pressed)
 	bullet_slider.value_changed.connect(_on_bullet_slider_changed)
@@ -64,9 +68,12 @@ func _ready() -> void:
 
 	action_panel.hide()
 
+# Llamado desde CombatSetup en cada (re)inicio — NO conecta señales,
+# solo reconstruye las tarjetas visuales con los personajes actuales.
 func _process(_delta: float) -> void:
 	if combat_manager != null:
 		_refresh_bars()
+
 
 func reinitialize() -> void:
 	action_panel.hide()
@@ -123,6 +130,7 @@ func _create_card(character, is_player: bool) -> Dictionary:
 	atb_bar.max_value = character.atb_max
 	atb_bar.value = character.atb
 	atb_bar.custom_minimum_size.y = 12
+	# Teñir el ATB de amarillo
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color.YELLOW
 	atb_bar.add_theme_stylebox_override("fill", style)
@@ -137,8 +145,10 @@ func _create_card(character, is_player: bool) -> Dictionary:
 	select_button.hide()
 	vbox.add_child(select_button)
 	if not is_player:
+		# Conectar el botón al handler de selección de enemigo
 		select_button.pressed.connect(_on_enemy_selected.bind(character, select_button))
 
+	# Botón "Usar" — solo para jugadores, aparece cuando están listos
 	var use_button = null
 	if is_player:
 		use_button = Button.new()
@@ -147,6 +157,7 @@ func _create_card(character, is_player: bool) -> Dictionary:
 		use_button.pressed.connect(_on_use_player_pressed.bind(character))
 		vbox.add_child(use_button)
 
+	# Para jugadores, mostrar munición
 	var ammo_bar = null
 	if is_player:
 		var pc = character
@@ -198,18 +209,33 @@ func _refresh_bars() -> void:
 
 	_refresh_player_ready_state()
 
+
 # ──────────────────────────────────────────────
-#  ESTADO "LISTO" DE JUGADORES
+#  ESTADO "LISTO" DE JUGADORES — mostrar/ocultar botón Usar
 # ──────────────────────────────────────────────
 func _refresh_player_ready_state() -> void:
+	# En las cards de jugador:
+	#  - Si está listo (ATB 100%) y NO encolado: botón "USAR" habilitado
+	#  - Si está encolado o actuando: botón "EN COLA" deshabilitado
+	#  - Si no está listo: botón oculto
 	for card in player_card_nodes:
 		var c = card["char"]
 		if not card.has("use_button"):
 			continue
 		var btn: Button = card["use_button"]
-		if c.get("is_alive") and c.get("atb") >= c.get("atb_max"):
+		if not c.get("is_alive"):
+			btn.hide()
+			continue
+		var is_ready = c.get("atb") >= c.get("atb_max")
+		var in_queue = combat_manager._is_actor_in_queue_or_acting(c)
+		if in_queue:
 			btn.show()
-			btn.disabled = combat_manager.active_player_char != null
+			btn.text = "EN COLA"
+			btn.disabled = true
+		elif is_ready:
+			btn.show()
+			btn.text = "USAR"
+			btn.disabled = false
 		else:
 			btn.hide()
 
@@ -217,20 +243,25 @@ func _refresh_player_ready_state() -> void:
 #  TURNO DEL JUGADOR
 # ──────────────────────────────────────────────
 func _on_player_ready_changed(player_char, is_ready: bool) -> void:
+	# Solo refresca las cards para mostrar/ocultar el botón "Usar"
 	_refresh_player_ready_state()
 
+
+
+# Llamado desde el botón "Usar" de una card de jugador lista.
+# Encola la intención de tomar turno. No abre menú — el menú se abrirá
+# cuando llegue su turno en la cola (action_started con kind == "player_turn").
 func _on_use_player_pressed(player_char) -> void:
 	combat_manager.queue_player_turn(player_char)
 	_refresh_player_ready_state()
 
+
 func _on_enemy_selected(enemy, btn: Button) -> void:
-	print("[DEBUG UI] _on_enemy_selected disparado. Enemigo clickeado: ", enemy.get("character_name"))
+	print("[UI] _on_enemy_selected: ", enemy.get("character_name"), " action_panel.visible=", action_panel.visible)
 	selected_enemy = enemy
-	
-	print("[DEBUG UI] Intentando habilitar attack_button...")
 	attack_button.disabled = false
-	print("[DEBUG UI] attack_button.disabled ahora es: ", attack_button.disabled)
-	
+	print("[UI] attack_button.disabled despues: ", attack_button.disabled)
+	# Resaltar seleccionado
 	for card in enemy_card_nodes:
 		var b: Button = card["select_button"]
 		b.text = "Seleccionar"
@@ -248,8 +279,11 @@ func _on_attack_pressed() -> void:
 		_log("[color=red]Sin municion suficiente.[/color]")
 		return
 
+	# Guardar info pendiente — el setup del QTE se hace en _on_action_started
+	# cuando llegue la señal con kind="player_attack"
 	_pending_bullets = bullets
 	_pending_target = selected_enemy
+	# IMPORTANTE: promover ANTES de _close_action_panel (que resetea selected_enemy a null)
 	combat_manager.confirm_player_attack(selected_enemy, bullets)
 	_close_action_panel()
 
@@ -287,14 +321,15 @@ func _on_reload_pressed() -> void:
 	_refresh_bars()
 
 func _close_action_panel() -> void:
-	print("[DEBUG UI] _close_action_panel ejecutado. Ocultando UI.")
 	action_panel.hide()
 	selected_enemy = null
-	
+	# Ocultar botones de selección de enemigos.
+	# La conexión .pressed se hace una sola vez en _create_card y queda persistente
+	# entre turnos — no hay que desconectar/reconectar.
 	for card in enemy_card_nodes:
 		var btn: Button = card["select_button"]
 		btn.hide()
-		# ESTÁ ARREGLADO: Ya no desconectamos la señal.
+		btn.text = "Seleccionar"  # resetear texto para el próximo turno
 
 # ──────────────────────────────────────────────
 #  SEÑALES DE COMBATE
@@ -308,6 +343,7 @@ func _on_enemy_turn_resolved(enemy, target, dmg: float) -> void:
 func _on_character_died(character, is_player: bool) -> void:
 	var color = "red" if is_player else "gray"
 	_log("[color=%s]%s fue eliminado.[/color]" % [color, character.get("character_name")])
+	# Deshabilitar visualmente la tarjeta
 	for card in (player_card_nodes if is_player else enemy_card_nodes):
 		if card["char"] == character:
 			card["root"].modulate = Color(0.4, 0.4, 0.4)
@@ -323,8 +359,10 @@ func _on_combat_ended(player_won: bool) -> void:
 #  HELPER LOG
 # ──────────────────────────────────────────────
 func _log(text: String) -> void:
+	if log_label == null:
+		return
 	log_label.append_text(text + "\n")
-	await get_tree().process_frame
+	# Auto-scroll al final (sin await — el await se cuelga si get_tree().paused = true)
 	log_label.scroll_to_line(log_label.get_line_count())
 
 # ──────────────────────────────────────────────
@@ -344,31 +382,29 @@ func _on_action_started(action_data: Dictionary) -> void:
 	var actor = action_data["actor"]
 	var actor_name = actor.get("character_name")
 	var kind = action_data["kind"]
-
-	print("[DEBUG UI] _on_action_started recibido | Kind: ", kind, " | Actor: ", actor_name)
+	print("[UI] _on_action_started: kind=", kind, " actor=", actor_name)
 
 	if kind == "enemy_attack":
 		_log("[color=orange]%s ataca![/color]" % actor_name)
 
 	elif kind == "player_turn":
-		print("[DEBUG UI] Entrando a player_turn. Preparando UI...")
+		# Ahora sí abrimos el menú — es el turno del jugador
 		_log("[color=cyan]Turno de %s[/color]" % actor_name)
 		action_panel.show()
 		active_char_label.text = "Turno de: %s" % actor_name
-		ammo_label.text = "Municion: %d / %d  | Cadencia max: %d" % [
+		ammo_label.text = "Municion: %d / %d  |  Cadencia max: %d" % [
 			actor.get("current_ammo"),
 			actor.get("max_ammo"),
 			actor.get("cadence"),
 		]
 		bullet_slider.max_value = actor.get("cadence")
 		bullet_slider.value = min(actor.get("cadence"), actor.get("current_ammo"))
-		
 		selected_enemy = null
 		attack_button.disabled = true
 		reload_button.disabled = false
 		_refresh_player_ready_state()
 
-		print("[DEBUG UI] Mostrando botones de enemigos...")
+		# Mostrar botones "Seleccionar" en enemigos vivos
 		for card in enemy_card_nodes:
 			var c = card["char"]
 			var btn: Button = card["select_button"]
@@ -376,24 +412,25 @@ func _on_action_started(action_data: Dictionary) -> void:
 				btn.show()
 				btn.text = "Seleccionar"
 				btn.disabled = false
-				print("  -> Boton habilitado para: ", c.get("character_name"))
 			else:
 				btn.hide()
 
 	elif kind == "player_attack":
-		print("[DEBUG UI] player_attack iniciando QTE...")
+		# Es turno de este jugador en la cola — abrir QTE
 		_log("[color=white]%s apunta - QTE iniciado[/color]" % actor_name)
+		# Conectar la resolución del QTE para este disparo (one-shot)
 		if not qte_display.attack_resolved.is_connected(_on_qte_resolved):
 			qte_display.attack_resolved.connect(_on_qte_resolved, CONNECT_ONE_SHOT)
-		
+		# Consumir munición ahora
 		combat_manager.active_consume_ammo(_pending_bullets)
-		
+		# Pasar datos del enemigo (hitboxes) al QTE
 		var target = action_data["target"]
 		var enemy_idx: int = combat_manager.enemy_chars.find(target)
 		if enemy_idx >= 0 and enemy_idx < GameData.enemy_data.size():
 			qte_display.set_enemy(GameData.enemy_data[enemy_idx])
-		
+		# Iniciar QTE — esto bloquea hasta que el jugador termine
 		qte_display.start_qte(actor, _pending_bullets)
+		# selected_enemy se mantiene del momento del attack press
 		selected_enemy = target
 
 	elif kind == "player_reload":

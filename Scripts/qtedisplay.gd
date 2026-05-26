@@ -80,22 +80,48 @@ var debug_overlay: Control = null
 func _ready() -> void:
 	# Anchors se configuran desde el Inspector de la escena, no por código
 
-	# Crear overlay para dibujar zonas debug
+	# Crear overlay para dibujar zonas debug.
+	# Lo agregamos como hijo del sprite_panel (si existe) para que no tape el botón
+	# Confirm ni la UI. Si no hay sprite_panel asignado, fallback al QTEDisplay.
 	debug_overlay = Control.new()
 	debug_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	debug_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(debug_overlay)
-	move_child(debug_overlay, 0)  # detrás de los hijos visibles
+	if sprite_panel:
+		sprite_panel.add_child(debug_overlay)
+	else:
+		add_child(debug_overlay)
+		move_child(debug_overlay, 0)
 	debug_overlay.draw.connect(_on_debug_overlay_draw)
 
-	# Asegurar que el botón de confirmar quede al frente
-	if confirm_button:
+	# Asegurar que el botón de confirmar quede al frente.
+	# Solo si es hijo directo del QTEDisplay (puede estar dentro de un Container).
+	if confirm_button and confirm_button.get_parent() == self:
 		move_child(confirm_button, get_child_count() - 1)
 
 	qte_controller.axis_changed.connect(_on_axis_changed)
 	qte_controller.qte_completed.connect(_on_qte_completed)
 	confirm_button.pressed.connect(_on_confirm_pressed)
+	confirm_button.mouse_entered.connect(func(): print("[QTE] HOVER en confirm_button"))
 	hide()
+
+	# Diagnóstico de mouse_filter
+	print("\n[QTE DIAG] confirm_button stack (de Confirm hasta el root):")
+	var node = confirm_button
+	while node:
+		var info = "  " + str(node.name) + " (" + node.get_class() + ")"
+		if node is Control:
+			info += " filter=" + str(node.mouse_filter) + "(" + _filter_name(node.mouse_filter) + ")"
+			info += " visible=" + str(node.visible)
+			info += " disabled=" + str(node.disabled if "disabled" in node else "n/a")
+		print(info)
+		node = node.get_parent()
+
+func _filter_name(f: int) -> String:
+	match f:
+		0: return "STOP"
+		1: return "PASS"
+		2: return "IGNORE"
+	return "?"
 
 # ──────────────────────────────────────────────
 #  API pública
@@ -143,6 +169,15 @@ func start_qte(player: Object, bullets: int, sprite_texture: Texture2D = null) -
 		confirm_button.disabled = false
 		confirm_button.show()
 
+	# Diag: estado del confirm_button cuando arranca QTE
+	await get_tree().process_frame
+	print("\n[QTE start_qte] confirm_button state:")
+	print("  visible=", confirm_button.visible, " disabled=", confirm_button.disabled)
+	print("  global_position=", confirm_button.global_position, " size=", confirm_button.size)
+	print("  mouse_filter=", confirm_button.mouse_filter)
+	print("  process_mode=", confirm_button.process_mode)
+	print("  paused=", get_tree().paused)
+
 	qte_controller.start(player)
 
 func _update_sprite_rect() -> void:
@@ -180,6 +215,7 @@ func _on_axis_changed(axis: String, value: float) -> void:
 	queue_redraw()
 
 func _on_confirm_pressed() -> void:
+	print("[QTE] _on_confirm_pressed disparado! phase=", _phase)
 	# Si el QTE ya está resuelto, este botón funciona como "Continuar"
 	if _phase == "done":
 		hide()
@@ -375,13 +411,9 @@ func _on_debug_overlay_draw() -> void:
 	if not _debug_mode:
 		return
 
-	# Usar el sprite_panel como referencia: posición del panel relativa al debug_overlay
-	# (ambos son hijos del QTEDisplay, así que sus coords locales son comparables)
-	var s: Rect2
-	if sprite_panel != null and sprite_panel.size.x > 1:
-		s = Rect2(sprite_panel.position, sprite_panel.size)
-	else:
-		s = Rect2(Vector2.ZERO, debug_overlay.size)
+	# El debug_overlay ahora es hijo del sprite_panel, así que su área local
+	# (0,0)-size coincide exactamente con el área del sprite.
+	var s = Rect2(Vector2.ZERO, debug_overlay.size)
 	if s.size.x < 1 or s.size.y < 1:
 		return
 

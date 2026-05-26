@@ -177,11 +177,17 @@ func _update_center_display_visibility() -> void:
 		pass  # debug arriba
 	if any_modal_active:
 		center_display.mouse_filter = Control.MOUSE_FILTER_PASS
+		# Deshabilitar input de la UI principal para que no tape al modal del CenterDisplay
+		if combat_ui:
+			combat_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if not get_tree().paused:
 			print("[Pause] PAUSANDO (modal visible)")
 			get_tree().paused = true
 	else:
 		center_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Restaurar input de la UI principal cuando se cierra el modal
+		if combat_ui:
+			combat_ui.mouse_filter = Control.MOUSE_FILTER_PASS
 		if get_tree().paused and not _paused:
 			print("[Pause] DESPAUSANDO (no hay modal y no pause_menu)")
 			get_tree().paused = false

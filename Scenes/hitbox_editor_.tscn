@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c5q5skj5d48j5" path="res://Scripts/hitboxEditor_.gd" id="1_xp1hi"]
 
-[node name="HitboxEditor" type="Panel" unique_id=2050798308 node_paths=PackedStringArray("enemy_tabs", "btn_add_zone", "btn_reset", "btn_close", "zone_list", "enemy_name_label", "sprite_rect", "grid_container")]
+[node name="HitboxEditor" type="PanelContainer" unique_id=200910978 node_paths=PackedStringArray("enemy_tabs", "btn_add_zone", "btn_reset", "btn_close", "zone_list", "enemy_name_label", "sprite_rect", "grid_container")]
 process_mode = 3
 custom_minimum_size = Vector2(800, 600)
 anchors_preset = 15
@@ -23,12 +23,7 @@ sprite_rect = NodePath("MainLayout/CenterContainer/CenterVContainer/Control/Text
 grid_container = NodePath("MainLayout/CenterContainer/CenterVContainer/Control/GridContainer")
 
 [node name="MainLayout" type="HBoxContainer" parent="." unique_id=1416537993]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+layout_mode = 2
 
 [node name="LeftPanel" type="PanelContainer" parent="MainLayout" unique_id=594198331]
 custom_minimum_size = Vector2(300, 1)

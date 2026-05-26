@@ -23,17 +23,12 @@ const STAT_FIELDS_PLAYER = [
 	{ "key": "qte_speed_x",  "label": "QTE velocidad X", "min": 0.05, "max": 5.0,  "step": 0.05 },
 	{ "key": "qte_speed_y",  "label": "QTE velocidad Y", "min": 0.05, "max": 5.0,  "step": 0.05 },
 ]
-
 const STAT_FIELDS_ENEMY = [
 	{ "key": "max_hp",   "label": "HP máximo",     "min": 1,    "max": 9999, "step": 1.0 },
 	{ "key": "speed",    "label": "Velocidad ATB", "min": 0.1,  "max": 10.0, "step": 0.05 },
 	{ "key": "damage",   "label": "Daño",          "min": 0,    "max": 999,  "step": 0.5 },
 	{ "key": "atb_max",  "label": "ATB máximo",    "min": 10,   "max": 999,  "step": 1.0 },
 ]
-
-# Valores Desmos: x/y van -1..+1 (+y = arriba/cabeza, -y = abajo/pies)
-# r va 0..2 (radio en unidades Desmos, 2 unidades = ancho/alto completo de la silueta)
-# a/b son escalas adimensionales
 const ELIPSE_FIELDS = [
 	{ "key": "h", "label": "h (centro X, Desmos)",  "min": -1.0, "max": 1.0, "step": 0.01 },
 	{ "key": "k", "label": "k (centro Y, Desmos)",  "min": -1.0, "max": 1.0, "step": 0.01 },
@@ -42,7 +37,6 @@ const ELIPSE_FIELDS = [
 	{ "key": "b", "label": "b (escala Y)",          "min": 0.1,  "max": 5.0, "step": 0.05 },
 ]
 
-# Caché: card[i] = { name_edit, fields: { key: SpinBox/CheckBox }, left_handed_check, sprite_path_edit, elipse_spins: Array }
 var _player_cards: Array = []
 var _enemy_cards: Array = []
 
@@ -66,14 +60,11 @@ func refresh() -> void:
 #  CONSTRUCCIÓN DE LA UI
 # ──────────────────────────────────────────────
 func _build_tabs() -> void:
-	# Limpiar tabs previos
 	for child in tab_container.get_children():
 		tab_container.remove_child(child)
 		child.queue_free()
 	_player_cards.clear()
 	_enemy_cards.clear()
-
-	# Tab Jugadores
 	var players_scroll = ScrollContainer.new()
 	players_scroll.name = "Jugadores"
 	var players_vbox = VBoxContainer.new()
@@ -81,13 +72,10 @@ func _build_tabs() -> void:
 	players_vbox.add_theme_constant_override("separation", 12)
 	players_scroll.add_child(players_vbox)
 	tab_container.add_child(players_scroll)
-
 	for i in GameData.player_data.size():
 		var card = _build_player_card(GameData.player_data[i])
 		players_vbox.add_child(card["root"])
 		_player_cards.append(card)
-
-	# Tab Enemigos
 	var enemies_scroll = ScrollContainer.new()
 	enemies_scroll.name = "Enemigos"
 	var enemies_vbox = VBoxContainer.new()
@@ -95,7 +83,6 @@ func _build_tabs() -> void:
 	enemies_vbox.add_theme_constant_override("separation", 12)
 	enemies_scroll.add_child(enemies_vbox)
 	tab_container.add_child(enemies_scroll)
-
 	for i in GameData.enemy_data.size():
 		var card = _build_enemy_card(GameData.enemy_data[i])
 		enemies_vbox.add_child(card["root"])
@@ -106,8 +93,6 @@ func _build_player_card(d: Dictionary) -> Dictionary:
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 4)
 	panel.add_child(vbox)
-
-	# Nombre
 	var name_row = HBoxContainer.new()
 	var name_lbl = Label.new()
 	name_lbl.text = "Nombre"
@@ -118,8 +103,6 @@ func _build_player_card(d: Dictionary) -> Dictionary:
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(name_edit)
 	vbox.add_child(name_row)
-
-	# Stats numéricos
 	var fields = {}
 	for f in STAT_FIELDS_PLAYER:
 		var row = HBoxContainer.new()
@@ -136,8 +119,6 @@ func _build_player_card(d: Dictionary) -> Dictionary:
 		row.add_child(spin)
 		vbox.add_child(row)
 		fields[f["key"]] = spin
-
-	# Left-handed checkbox
 	var lh_row = HBoxContainer.new()
 	var lh_lbl = Label.new()
 	lh_lbl.text = "Zurdo"
@@ -147,24 +128,17 @@ func _build_player_card(d: Dictionary) -> Dictionary:
 	lh_check.button_pressed = bool(d.get("left_handed", false))
 	lh_row.add_child(lh_check)
 	vbox.add_child(lh_row)
-
-	# Separador
 	vbox.add_child(HSeparator.new())
-
-	# Sección elipse_sets
 	var sets_header = Label.new()
 	sets_header.text = "Sets de elipse (uno por disparo)"
 	sets_header.add_theme_font_size_override("font_size", 13)
 	sets_header.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
 	vbox.add_child(sets_header)
-
 	var sets_container = VBoxContainer.new()
 	sets_container.add_theme_constant_override("separation", 6)
 	vbox.add_child(sets_container)
-
-	var elipse_spins = []  # Array de Dictionaries (uno por set), cada uno tiene los SpinBox
+	var elipse_spins = []  
 	_build_elipse_sets_ui(sets_container, d.get("elipse_sets", []), elipse_spins)
-
 	return {
 		"root": panel,
 		"name_edit": name_edit,
@@ -176,23 +150,19 @@ func _build_player_card(d: Dictionary) -> Dictionary:
 	}
 
 func _build_elipse_sets_ui(container: VBoxContainer, sets: Array, out_spins: Array) -> void:
-	# Limpiar contenedor
 	for c in container.get_children():
 		container.remove_child(c)
 		c.queue_free()
 	out_spins.clear()
-
 	for i in sets.size():
 		var set_data = sets[i]
 		var set_panel = PanelContainer.new()
 		var set_vbox = VBoxContainer.new()
 		set_panel.add_child(set_vbox)
-
 		var title = Label.new()
 		title.text = "Disparo #%d" % (i + 1)
 		title.add_theme_font_size_override("font_size", 11)
 		set_vbox.add_child(title)
-
 		var spins_dict = {}
 		for f in ELIPSE_FIELDS:
 			var row = HBoxContainer.new()
@@ -210,7 +180,6 @@ func _build_elipse_sets_ui(container: VBoxContainer, sets: Array, out_spins: Arr
 			row.add_child(spin)
 			set_vbox.add_child(row)
 			spins_dict[f["key"]] = spin
-
 		out_spins.append(spins_dict)
 		container.add_child(set_panel)
 
@@ -219,8 +188,6 @@ func _build_enemy_card(d: Dictionary) -> Dictionary:
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 4)
 	panel.add_child(vbox)
-
-	# Nombre
 	var name_row = HBoxContainer.new()
 	var name_lbl = Label.new()
 	name_lbl.text = "Nombre"
@@ -231,8 +198,6 @@ func _build_enemy_card(d: Dictionary) -> Dictionary:
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(name_edit)
 	vbox.add_child(name_row)
-
-	# Sprite path
 	var path_row = HBoxContainer.new()
 	var path_lbl = Label.new()
 	path_lbl.text = "Sprite"
@@ -244,8 +209,6 @@ func _build_enemy_card(d: Dictionary) -> Dictionary:
 	path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	path_row.add_child(path_edit)
 	vbox.add_child(path_row)
-
-	# Stats numéricos
 	var fields = {}
 	for f in STAT_FIELDS_ENEMY:
 		var row = HBoxContainer.new()
@@ -262,7 +225,6 @@ func _build_enemy_card(d: Dictionary) -> Dictionary:
 		row.add_child(spin)
 		vbox.add_child(row)
 		fields[f["key"]] = spin
-
 	return {
 		"root": panel,
 		"name_edit": name_edit,
@@ -286,12 +248,9 @@ func _apply_changes() -> void:
 			else:
 				d[key] = val
 		d["left_handed"] = card["left_handed_check"].button_pressed
-
-		# Reconstruir elipse_sets si la cadencia cambió
 		var new_cad = int(d["cadence"])
 		var current_sets = d.get("elipse_sets", [])
 		if current_sets.size() != new_cad:
-			# Ajustar tamaño manteniendo valores existentes
 			while current_sets.size() < new_cad:
 				current_sets.append({
 					"h": 0.0, "k": 0.0,
@@ -301,16 +260,12 @@ func _apply_changes() -> void:
 			while current_sets.size() > new_cad:
 				current_sets.pop_back()
 			d["elipse_sets"] = current_sets
-
-		# Aplicar valores editados de cada set
 		for j in card["elipse_spins"].size():
 			if j >= d["elipse_sets"].size():
 				break
 			var spins = card["elipse_spins"][j]
 			for key in spins:
 				d["elipse_sets"][j][key] = spins[key].value
-
-	# Enemigos
 	for i in _enemy_cards.size():
 		var card = _enemy_cards[i]
 		var d = GameData.enemy_data[i]
@@ -322,8 +277,6 @@ func _apply_changes() -> void:
 				d[key] = int(val)
 			else:
 				d[key] = val
-
-	# Re-render para reflejar si cambió cadencia (nuevos sets agregados/quitados)
 	refresh()
 
 func _reset_to_defaults() -> void:

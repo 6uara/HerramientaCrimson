@@ -56,7 +56,8 @@ func _ready() -> void:
 	btn_reset.pressed.connect(_reset_all)
 	btn_add_zone.pressed.connect(_add_zone)
 	enemy_tabs.tab_changed.connect(_on_tab_changed)
-	
+	if grid_container:
+		grid_container.mouse_filter = Control.MOUSE_FILTER_PASS
 	_build_grid()
 	hide()
 

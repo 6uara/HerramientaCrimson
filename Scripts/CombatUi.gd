@@ -362,7 +362,6 @@ func _log(text: String) -> void:
 	if log_label == null:
 		return
 	log_label.append_text(text + "\n")
-	# Auto-scroll al final (sin await — el await se cuelga si get_tree().paused = true)
 	log_label.scroll_to_line(log_label.get_line_count())
 
 # ──────────────────────────────────────────────

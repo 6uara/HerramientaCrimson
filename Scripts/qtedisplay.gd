@@ -392,8 +392,12 @@ func _draw_elipses_debug(sprite_rect: Rect2) -> void:
 			center_norm.y * sprite_rect.size.y
 		)
 		
-		var rx_px = calc.get("rx", 0.05) * sprite_rect.size.x
-		var ry_px = calc.get("ry", 0.05) * sprite_rect.size.y
+		# Usar la dimensión MENOR del sprite como referencia común para ambos ejes.
+		# Así cuando a=b la elipse se ve como círculo en pantalla, no distorsionada
+		# por el aspect ratio del sprite (que típicamente no es cuadrado).
+		var ref_size = min(sprite_rect.size.x, sprite_rect.size.y)
+		var rx_px = calc.get("rx", 0.05) * ref_size
+		var ry_px = calc.get("ry", 0.05) * ref_size
 		
 		_draw_ellipse_outline(center_px, rx_px, ry_px, col)
 		_draw_center_cross(center_px, col)

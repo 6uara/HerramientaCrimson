@@ -5,6 +5,20 @@ extends Node
 signal axis_changed(axis: String, value: float)
 signal qte_completed(point: Vector2)
 
+# Franja horizontal útil del QTE (en coords normalizadas 0..1).
+# El espacio matemático es cuadrado, pero la silueta (sprite alto y angosto)
+# ocupa todo el ALTO y solo una franja del ANCHO. Limitamos X para que ningún
+# disparo caiga en el espacio vacío a los lados del personaje.
+# Ej: 0.25 a 0.75 = la silueta ocupa el 50% central del ancho del cuadrado.
+# Franja horizontal útil — valores por defecto, se sobreescriben con set_x_band()
+# desde el QTEDisplay según el tamaño real de la textura del enemigo.
+var x_min: float = 0.05
+var x_max: float = 0.95
+
+func set_x_band(new_min: float, new_max: float) -> void:
+	x_min = new_min
+	x_max = new_max
+
 enum QTEPhase { IDLE, VERTICAL, HORIZONTAL, DONE }
 var phase: QTEPhase = QTEPhase.IDLE
 
@@ -31,10 +45,10 @@ func start(player: Object) -> void:
 	_dir_v = -1
 
 	if _left_handed:
-		_value_horizontal = 1.0
+		_value_horizontal = x_max  # zurdo empieza desde la derecha de la franja
 		_dir_h = -1
 	else:
-		_value_horizontal = 0.0
+		_value_horizontal = x_min  # diestro empieza desde la izquierda de la franja
 		_dir_h = 1
 
 	print("[QTEController] speeds - v: ", _speed_v, " h: ", _speed_h)
@@ -59,6 +73,7 @@ func tick(delta: float) -> void:
 	match phase:
 		QTEPhase.VERTICAL:
 			_value_vertical += _dir_v * _speed_v * delta
+			# El alto usa todo el cuadrado (el sprite es alto, ocupa todo el eje Y)
 			if _value_vertical <= 0.0:
 				_value_vertical = 0.0
 				_dir_v = 1
@@ -69,11 +84,12 @@ func tick(delta: float) -> void:
 
 		QTEPhase.HORIZONTAL:
 			_value_horizontal += _dir_h * _speed_h * delta
-			if _value_horizontal <= 0.0:
-				_value_horizontal = 0.0
+			# Rebota dentro de la franja útil del ancho (la silueta no ocupa todo el cuadrado)
+			if _value_horizontal <= x_min:
+				_value_horizontal = x_min
 				_dir_h = 1
-			elif _value_horizontal >= 1.0:
-				_value_horizontal = 1.0
+			elif _value_horizontal >= x_max:
+				_value_horizontal = x_max
 				_dir_h = -1
 			emit_signal("axis_changed", "horizontal", _value_horizontal)
 

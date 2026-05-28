@@ -5,6 +5,54 @@ const HitboxEditorScript = preload("res://Scripts/hitboxEditor.gd")
 
 signal attack_resolved(shots: Array)
 
+# Franja horizontal útil — debe coincidir con QTEController.QTE_X_MIN/MAX.
+# Franja horizontal útil — se CALCULA automáticamente desde el tamaño real de
+# la textura del enemigo. El espacio es cuadrado (lado = alto del sprite), y el
+# ancho real de la textura suele ser menor, dejando margen a los lados.
+# extra_x_margin agrega un margen adicional configurable como respaldo.
+@export var extra_x_margin: float = 0.0  # margen extra (0..0.4) sumado a cada lado
+
+var _qte_x_min: float = 0.0
+var _qte_x_max: float = 1.0
+
+# Calcula la franja útil en X según el aspect ratio de la textura.
+# Si la textura es 100x175 en un cuadrado de 175x175, el ancho ocupa 100/175 = 0.57
+# del cuadrado, centrado → franja de 0.21 a 0.79 (más el margen extra).
+func _compute_x_band() -> void:
+	var tex_w: float = 0.0
+	var tex_h: float = 0.0
+	# 1. Intentar leer del sprite_node si tiene textura
+	if sprite_node and sprite_node.texture:
+		var ts: Vector2 = sprite_node.texture.get_size()
+		tex_w = ts.x
+		tex_h = ts.y
+	# 2. Si no, intentar cargar la textura desde el sprite_path del enemigo
+	elif _current_enemy_data.has("sprite_path"):
+		var path: String = _current_enemy_data["sprite_path"]
+		if path != "" and ResourceLoader.exists(path):
+			var tex = load(path)
+			if tex and tex is Texture2D:
+				var ts2: Vector2 = tex.get_size()
+				tex_w = ts2.x
+				tex_h = ts2.y
+	if tex_w <= 0.0 or tex_h <= 0.0:
+		# Sin textura válida → usar todo el ancho con un pequeño margen
+		_qte_x_min = 0.05 + extra_x_margin
+		_qte_x_max = 0.95 - extra_x_margin
+		return
+	# El cuadrado tiene lado = dimensión mayor de la textura
+	var square_side: float = max(tex_w, tex_h)
+	# Fracción del cuadrado que ocupa el ancho real de la textura
+	var width_frac: float = tex_w / square_side
+	# Centrar esa franja: margen a cada lado = (1 - width_frac) / 2
+	var side_margin: float = (1.0 - width_frac) / 2.0
+	_qte_x_min = side_margin + extra_x_margin
+	_qte_x_max = 1.0 - side_margin - extra_x_margin
+	# Sanity: no invertir
+	if _qte_x_min >= _qte_x_max:
+		_qte_x_min = 0.1
+		_qte_x_max = 0.9
+
 @export var qte_controller: Node
 @export var confirm_button: Button
 @export var sprite_panel: Control
@@ -86,6 +134,9 @@ func start_qte(player: Object, bullets: int, _sprite_texture: Texture2D = null) 
 	_init_elipse()
 	_elipse.setup(0.0, 0.0, 1.0, 1.0, 1.0)
 
+	# Calcular la franja útil en X según el tamaño de la textura del enemigo
+	_compute_x_band()
+
 	show()
 	queue_redraw()
 	
@@ -95,6 +146,10 @@ func start_qte(player: Object, bullets: int, _sprite_texture: Texture2D = null) 
 		confirm_button.show()
 	
 	if qte_controller:
+		# Pasar los límites de X calculados al controller para que el input manual
+		# rebote dentro de la franja útil
+		if qte_controller.has_method("set_x_band"):
+			qte_controller.set_x_band(_qte_x_min, _qte_x_max)
 		qte_controller.start(player)
 
 func _update_sprite_rect() -> void:
@@ -200,7 +255,11 @@ func _on_qte_completed(point: Vector2) -> void:
 		_elipse.a = float(shot_set.get("a", 1.0))
 		_elipse.b = float(shot_set.get("b", 1.0))
 		var calc: Dictionary = _elipse.next_point_from_verbose(previous_point)
-		var ep: Vector2 = (calc["point"] as Vector2).clamp(Vector2.ZERO, Vector2.ONE)
+		var ep: Vector2 = (calc["point"] as Vector2)
+		# Clampear: Y usa todo el alto (0..1), X se limita a la franja útil del sprite
+		# para que ningún disparo caiga fuera del personaje a los lados.
+		ep.x = clamp(ep.x, _qte_x_min, _qte_x_max)
+		ep.y = clamp(ep.y, 0.0, 1.0)
 
 		calc["point"] = ep
 		calc["previous_point"] = previous_point

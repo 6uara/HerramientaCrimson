@@ -112,6 +112,39 @@ func _update_sprite_rect() -> void:
 		var fallback = Vector2(desired_width, desired_height)
 		_sprite_rect = Rect2(viewport_size / 2 - fallback / 2, fallback)
 
+
+# ──────────────────────────────────────────────
+#  CONVERSIÓN ESPACIO NORMALIZADO ↔ PÍXELES
+# ──────────────────────────────────────────────
+# El espacio de juego es CUADRADO normalizado (0..1 en ambos ejes), igual que el
+# Desmos del GD (-1..+1). Para que sea independiente del aspect ratio del sprite
+# y de la resolución, usamos el LADO MAYOR del sprite como referencia única para
+# ambos ejes. El cuadrado se centra en X y se alinea con la altura del sprite (Y).
+#
+# Esto garantiza:
+#  - a=b siempre da círculo (en cálculo Y en dibujo)
+#  - el punto de impacto siempre cae dentro de su elipse (misma escala)
+#  - cambiar resolución/sprite no distorsiona la forma
+
+# Devuelve la escala única (píxeles por unidad normalizada) y el origen del cuadrado
+func _get_square_mapping(sprite_rect: Rect2) -> Dictionary:
+	# Lado mayor como referencia (llena el eje largo, recorta el corto)
+	var ref = max(sprite_rect.size.x, sprite_rect.size.y)
+	# Centrar el cuadrado dentro del sprite_rect
+	var offset_x = sprite_rect.position.x + (sprite_rect.size.x - ref) / 2.0
+	var offset_y = sprite_rect.position.y + (sprite_rect.size.y - ref) / 2.0
+	return { "scale": ref, "origin": Vector2(offset_x, offset_y) }
+
+# Convierte un punto normalizado (0..1) a píxeles usando el mapeo cuadrado
+func _norm_to_px(norm_pt: Vector2, sprite_rect: Rect2) -> Vector2:
+	var m = _get_square_mapping(sprite_rect)
+	return m["origin"] + norm_pt * m["scale"]
+
+# Convierte un radio/escala normalizado a píxeles (escala única)
+func _norm_len_to_px(norm_len: float, sprite_rect: Rect2) -> float:
+	var m = _get_square_mapping(sprite_rect)
+	return norm_len * m["scale"]
+
 func _process(delta: float) -> void:
 	if not visible:
 		return
@@ -255,17 +288,18 @@ func _draw() -> void:
 	for i in _resolved.size():
 		var shot: Dictionary = _resolved[i]
 		var pt: Vector2 = shot["point"]
-		var px = s.position.x + pt.x * s.size.x
-		var py = s.position.y + pt.y * s.size.y
+		# Usar la misma conversión cuadrada que el overlay para que los puntos
+		# coincidan exactamente con las elipses dibujadas
+		var pos_px = _norm_to_px(pt, s)
 		var col = COLOR_HIT if shot["hit"] else COLOR_MISS
-		var radius = max(4.0, s.size.x * 0.02)
+		var radius = max(4.0, _norm_len_to_px(0.02, s))
 
-		draw_circle(Vector2(px, py), radius, col)
-		draw_circle(Vector2(px, py), radius, Color.WHITE, false, 1.5)
+		draw_circle(pos_px, radius, col)
+		draw_circle(pos_px, radius, Color.WHITE, false, 1.5)
 
 		var label = "%s  %.0f dmg" % [shot["zone"], shot["damage"]] if shot["hit"] else "FALLO"
 		var font_size = max(10, int(s.size.x * 0.035))
-		draw_string(font, Vector2(px + 8, py + 4), label,
+		draw_string(font, pos_px + Vector2(8, 4), label,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.WHITE)
 
 func _on_debug_overlay_draw() -> void:
@@ -374,10 +408,7 @@ func _draw_elipses_debug(sprite_rect: Rect2) -> void:
 		var calc: Dictionary = _shot_calc_data[i]
 		var col: Color = colors[i % colors.size()]
 
-		var point_px = sprite_rect.position + Vector2(
-			calc["point"].x * sprite_rect.size.x,
-			calc["point"].y * sprite_rect.size.y
-		)
+		var point_px = _norm_to_px(calc["point"], sprite_rect)
 		
 		if calc.get("manual", false):
 			debug_overlay.draw_circle(point_px, 5.0, col)
@@ -387,17 +418,11 @@ func _draw_elipses_debug(sprite_rect: Rect2) -> void:
 			continue
 		
 		var center_norm = Vector2(calc.get("h", 0.5), calc.get("k", 0.5))
-		var center_px = sprite_rect.position + Vector2(
-			center_norm.x * sprite_rect.size.x,
-			center_norm.y * sprite_rect.size.y
-		)
-		
-		# Usar la dimensión MENOR del sprite como referencia común para ambos ejes.
-		# Así cuando a=b la elipse se ve como círculo en pantalla, no distorsionada
-		# por el aspect ratio del sprite (que típicamente no es cuadrado).
-		var ref_size = min(sprite_rect.size.x, sprite_rect.size.y)
-		var rx_px = calc.get("rx", 0.05) * ref_size
-		var ry_px = calc.get("ry", 0.05) * ref_size
+		var center_px = _norm_to_px(center_norm, sprite_rect)
+		# Misma escala única para rx y ry → consistente con el punto, e independiente
+		# del aspect ratio. a=b siempre da círculo y el punto cae dentro.
+		var rx_px = _norm_len_to_px(calc.get("rx", 0.05), sprite_rect)
+		var ry_px = _norm_len_to_px(calc.get("ry", 0.05), sprite_rect)
 		
 		_draw_ellipse_outline(center_px, rx_px, ry_px, col)
 		_draw_center_cross(center_px, col)

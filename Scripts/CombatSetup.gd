@@ -93,12 +93,10 @@ func _update_center_display() -> void:
 	var any_modal_visible = false
 	var nodes_in_group = get_tree().get_nodes_in_group("center_display")
 	
-	print("\n[CD update] nodos en group:")
 	for node in nodes_in_group:
-		print("  ", node.name, " visible=", node.visible if node is CanvasItem else "n/a")
 		if node is CanvasItem and node.visible:
 			any_modal_visible = true
-	print("  → any_modal_visible: ", any_modal_visible, " paused: ", get_tree().paused)
+			break
 	
 	if any_modal_visible:
 		if not center_display.visible:
